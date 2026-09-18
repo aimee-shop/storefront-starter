@@ -1,0 +1,27 @@
+{
+  "name": "@aimee-fixtures/reference-script",
+  "version": "1.0.0",
+  "scriptUrl": "/apps-fixtures/reference-script.js",
+  "integrity": "sha384-vbY2Yl/+rnWxw9s2r51nj35oAHKykY4yZ9vExTzdD3zbKwuiji/48SZVEcG2twEP",
+  "crossOrigin": "anonymous",
+  "executableOrigins": [
+    "self"
+  ],
+  "consentCategory": "marketing",
+  "pageScope": {
+    "allow": [
+      "/**"
+    ],
+    "deny": []
+  },
+  "restrictedPagesAllowed": false,
+  "budgets": {
+    "maxLoadMs": 3000
+  },
+  "healthStatus": "healthy",
+  "localScriptPath": "script.js",
+  "rollback": {
+    "scriptUrl": "/apps-fixtures/reference-script.js",
+    "integrity": "sha384-vbY2Yl/+rnWxw9s2r51nj35oAHKykY4yZ9vExTzdD3zbKwuiji/48SZVEcG2twEP"
+  }
+}

@@ -1,0 +1,40 @@
+{
+  "name": "@aimee-fixtures/reference-banner",
+  "version": "1.0.0",
+  "runtimeContractVersion": "1.0",
+  "compatible": {
+    "storefrontStarter": ">=0.1.0",
+    "blocks": ">=0.0.1"
+  },
+  "exports": [
+    {
+      "id": "reference-banner",
+      "entry": "blocks/ReferenceBanner.tsx",
+      "environments": [
+        "server",
+        "browser"
+      ],
+      "configSchema": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "headline"
+        ],
+        "properties": {
+          "headline": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      }
+    }
+  ],
+  "requestedOrigins": [],
+  "customerDataClassifications": [],
+  "budgets": {
+    "maxBundleBytes": 50000
+  },
+  "ssrCompatible": true,
+  "upgradeNotes": "Compatible with config headline field.",
+  "rollbackNotes": "Safe rollback to prior pin."
+}

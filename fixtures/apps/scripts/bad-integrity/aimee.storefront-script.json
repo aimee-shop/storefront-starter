@@ -1,0 +1,11 @@
+{
+  "name": "@aimee-fixtures/bad-integrity-script",
+  "version": "1.0.0",
+  "scriptUrl": "https://scripts.example.com/v1/app.js",
+  "integrity": "not-a-valid-sri",
+  "executableOrigins": ["https://scripts.example.com"],
+  "consentCategory": "marketing",
+  "pageScope": { "allow": ["/**"] },
+  "budgets": { "maxLoadMs": 2000 },
+  "healthStatus": "healthy"
+}

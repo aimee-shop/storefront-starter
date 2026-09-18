@@ -1,0 +1,9 @@
+{
+  "keys": [
+    {
+      "keyId": "fixture-publisher-1",
+      "algorithm": "ed25519",
+      "publicKeyPem": "-----BEGIN PUBLIC KEY-----\nMCowBQYDK2VwAyEA5rw8M7dIRMFzOB+KrIItw4pGOvpoaY6Ij4rf5OV7ggI=\n-----END PUBLIC KEY-----\n"
+    }
+  ]
+}

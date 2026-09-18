@@ -1,0 +1,11 @@
+{
+  "name": "@aimee-fixtures/missing-consent-script",
+  "version": "1.0.0",
+  "scriptUrl": "https://scripts.example.com/v1/app.js",
+  "integrity": "sha384-9ZkDOxyLpBxLRa1vAYIOvMOy6ddblTk5mH4vppXVL+eHS293nHzdukxXlIU+fImY",
+  "executableOrigins": ["https://scripts.example.com"],
+  "consentCategory": "marketing",
+  "pageScope": { "allow": ["/**"] },
+  "budgets": { "maxLoadMs": 2000 },
+  "healthStatus": "healthy"
+}

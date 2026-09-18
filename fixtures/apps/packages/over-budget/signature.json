@@ -1,0 +1,7 @@
+{
+  "keyId": "fixture-publisher-1",
+  "algorithm": "ed25519",
+  "value": "h672LZ0cjEYA2qFaiyHaCMOMN1Z/Mrax7L36kGhwLErVua2jbPgXyoEIj7/W5GLrERg+l5w5A7O2llt2wXZVAQ==",
+  "packageSha256": "17bf8a98aad856eb9e15e5fafe6f32cf2887afa14e5ada952440746c06fd23a6",
+  "signedAt": "2026-07-30T00:00:00.000Z"
+}

@@ -1,0 +1,26 @@
+{
+  "name": "@aimee-fixtures/forbidden",
+  "version": "1.0.0",
+  "runtimeContractVersion": "1.0",
+  "compatible": {
+    "storefrontStarter": ">=0.1.0",
+    "blocks": ">=0.0.1"
+  },
+  "exports": [
+    {
+      "id": "bad",
+      "entry": "blocks/Bad.tsx",
+      "environments": [
+        "server"
+      ]
+    }
+  ],
+  "requestedOrigins": [],
+  "customerDataClassifications": [],
+  "budgets": {
+    "maxBundleBytes": 50000
+  },
+  "ssrCompatible": true,
+  "upgradeNotes": "Compatible with config headline field.",
+  "rollbackNotes": "Safe rollback to prior pin."
+}

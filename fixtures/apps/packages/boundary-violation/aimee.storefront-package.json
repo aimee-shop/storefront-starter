@@ -1,0 +1,26 @@
+{
+  "name": "@aimee-fixtures/boundary",
+  "version": "1.0.0",
+  "runtimeContractVersion": "1.0",
+  "compatible": {
+    "storefrontStarter": ">=0.1.0",
+    "blocks": ">=0.0.1"
+  },
+  "exports": [
+    {
+      "id": "clientish",
+      "entry": "blocks/Clientish.tsx",
+      "environments": [
+        "browser"
+      ]
+    }
+  ],
+  "requestedOrigins": [],
+  "customerDataClassifications": [],
+  "budgets": {
+    "maxBundleBytes": 50000
+  },
+  "ssrCompatible": true,
+  "upgradeNotes": "Compatible with config headline field.",
+  "rollbackNotes": "Safe rollback to prior pin."
+}
