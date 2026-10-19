@@ -22,9 +22,10 @@ export async function fillShippingAddress(page: Page): Promise<void> {
   await page.getByLabel('Last name').fill('Shopper');
   await page.getByLabel('Address', { exact: true }).fill('1 Test Street');
   await page.getByLabel('City').fill('Austin');
-  await page.getByLabel('State / province (optional)').fill('TX');
+  // Country first: changing it resets the state select.
+  await page.getByLabel('Country').selectOption('US');
+  await page.getByLabel('State / province').selectOption('TX');
   await page.getByLabel('Postal code (optional)').fill('78701');
-  await page.getByLabel('Country').fill('US');
   await page.getByRole('button', { name: 'Continue to shipping' }).click();
 }
 

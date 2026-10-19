@@ -80,11 +80,12 @@ function product() {
     isAvailable: true,
     isEnabled: true,
     tags: [],
-    // Amounts in minor units (cents) to match cart unitPrice '2000'.
+    // price is minor units so it matches cart unitPrice '2000'.
+    // priceRange follows getPriceRanges: major-unit decimals plus currency.
     price: 2000,
     compareAtPrice: null,
     images: [],
-    priceRange: { min: 2000, max: 2000 },
+    priceRange: { min: '20.00', max: '20.00', currency: 'USD' },
     categories: [],
     variants: [
       {
@@ -138,6 +139,7 @@ function checkoutSession() {
     customerId: c.customerId ?? FIXTURE.customerId,
     status: c.status,
     workflowState: c.workflowState,
+    revision: 1,
     useShippingAsBilling: true,
     subtotal: String(subtotal),
     discountTotal: '0',
@@ -163,6 +165,7 @@ function checkoutSession() {
 function totals() {
   const session = checkoutSession();
   return {
+    revision: 1,
     subtotal: session?.subtotal ?? '2000',
     discountTotal: '0',
     taxTotal: session?.taxTotal ?? '160',
@@ -484,9 +487,9 @@ export function createMockApiHandler() {
       return;
     }
 
-    // ---- Orders (confirmation RSC via customerSdk) ----
+    // ---- Orders (confirmation RSC via storefront.withCustomer) ----
     {
-      const m = match(method, path, 'GET', /^\/v1\/orders\/number\/([^/]+)$/);
+      const m = match(method, path, 'GET', /^\/v1\/storefront\/orders\/number\/([^/]+)$/);
       if (m) {
         if (decodeURIComponent(m[1]) !== FIXTURE.orderNumber) {
           sendJson(res, 404, { message: 'Not found', statusCode: 404 });
@@ -698,13 +701,22 @@ export function createMockApiHandler() {
       }
     }
 
-    // ---- Payments (server action createCheckoutPaymentIntent) ----
-    if (method === 'POST' && path === '/v1/payments/intents') {
+    // ---- checkout.preparePayment (server action prepareCheckoutPayment) ----
+    if (
+      method === 'POST' &&
+      /^\/v1\/checkout\/sessions\/([^/]+)\/payment-intent$/.test(path)
+    ) {
       sendJson(res, 200, {
-        clientSecret: FIXTURE.clientSecret,
+        attemptId: 'attempt_e2e_1',
+        revision: 1,
+        provider: 'stripe',
         paymentId: FIXTURE.paymentId,
+        paymentIntentId: FIXTURE.paymentIntentId,
+        clientSecret: FIXTURE.clientSecret,
         publishableKey: FIXTURE.publishableKey,
         status: 'requires_payment_method',
+        amount: totals().total,
+        currency: 'USD',
       });
       return;
     }

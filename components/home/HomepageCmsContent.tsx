@@ -2,6 +2,7 @@ import { fetchBlockProducts } from '@/lib/block-products';
 import { resolveSlot } from '@/lib/resolve-slot';
 import { StorefrontBlockRenderer } from '@/components/blocks/BlockPage';
 import type { Block } from '@aimee.shop/blocks';
+import { toBlocks } from '@/lib/product-modules';
 
 export async function HomepageCmsContent() {
   const resolved = await resolveSlot('homepage-content');
@@ -13,7 +14,7 @@ export async function HomepageCmsContent() {
   if (resolved?.source === 'experience') {
     blocks = resolved.blocks;
   } else if (resolved?.source === 'cms' && resolved.payload.kind === 'entry') {
-    blocks = (resolved.payload.entry.blocks as Block[]) ?? null;
+    blocks = toBlocks(resolved.payload.entry.blocks);
   }
 
   if (!blocks?.length) {

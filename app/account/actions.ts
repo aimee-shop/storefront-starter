@@ -3,7 +3,7 @@
 import { cookies } from 'next/headers';
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
-import { AuthenticationError, ValidationError } from '@aimee.shop/sdk';
+import { AimeeError, AuthenticationError, ValidationError } from '@aimee.shop/sdk';
 import type { ZodError } from 'zod';
 import { sdk } from '@/lib/sdk';
 import {
@@ -25,6 +25,19 @@ import type { AuthResult } from '@/lib/auth-form';
 import { safeAccountReturnPath } from '@/lib/account-return-path';
 
 const GENERIC_ERROR = 'Something went wrong. Please try again.';
+
+/**
+ * 4xx is the account-enumeration control. 429 does not reveal whether an
+ * account exists, so it surfaces like 5xx and network failures.
+ */
+function isEnumerationClientError(error: unknown): boolean {
+  return (
+    error instanceof AimeeError &&
+    error.statusCode >= 400 &&
+    error.statusCode < 500 &&
+    error.statusCode !== 429
+  );
+}
 
 function zodFieldErrors(error: ZodError): Record<string, string> {
   const fieldErrors: Record<string, string> = {};
@@ -133,9 +146,12 @@ export async function forgotPasswordAction(
 
   try {
     await sdk.storefront.auth.forgotPassword(parsed.data.email);
-  } catch {
-    // Deliberately swallowed: the response must not reveal whether an
-    // account exists for this email.
+  } catch (error) {
+    // 4xx stays indistinguishable from success so the response does not
+    // reveal whether an account exists. Outages return a generic error.
+    if (!isEnumerationClientError(error)) {
+      return { ok: false, formError: GENERIC_ERROR };
+    }
   }
 
   return { ok: true };

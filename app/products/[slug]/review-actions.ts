@@ -5,7 +5,7 @@ import {
   AuthorizationError,
   ValidationError,
 } from '@aimee.shop/sdk';
-import { customerSdk } from '@/lib/customer-sdk';
+import { sdk } from '@/lib/sdk';
 import { getCustomerSessionWithToken } from '@/lib/customer-session';
 import { loadProductReviews } from '@/lib/load-product-reviews';
 import {
@@ -63,7 +63,7 @@ export async function submitProductReviewAction(input: {
   }
 
   try {
-    const review = await customerSdk(session.accessToken).reviews.create({
+    const review = await sdk.storefront.withCustomer(session.accessToken).reviews.create({
       productId: parsed.data.productId,
       rating: parsed.data.rating,
       title: parsed.data.title || undefined,

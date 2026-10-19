@@ -4,7 +4,7 @@ import { notFound, redirect } from 'next/navigation';
 import { NotFoundError } from '@aimee.shop/sdk';
 import type { Order, OrderTimelineEvent } from '@aimee.shop/sdk';
 import { getCustomerSessionWithToken } from '@/lib/customer-session';
-import { customerSdk } from '@/lib/customer-sdk';
+import { sdk } from '@/lib/sdk';
 import { OrderStatusBadge } from '@/components/account/OrderStatusBadge';
 import { OrderTimeline } from '@/components/account/OrderTimeline';
 import { Separator } from '@/components/ui/separator';
@@ -27,11 +27,11 @@ export default async function OrderDetailPage({
   const session = await getCustomerSessionWithToken();
   if (!session) redirect('/account');
 
-  const sdk = customerSdk(session.accessToken);
+  const scoped = sdk.storefront.withCustomer(session.accessToken);
 
   let order: Order;
   try {
-    order = await sdk.orders.getByOrderNumber(orderNumber);
+    order = await scoped.orders.get(orderNumber);
   } catch (error) {
     if (error instanceof NotFoundError) notFound();
     throw error;
@@ -46,7 +46,7 @@ export default async function OrderDetailPage({
   // failures so an outage doesn't silently look like "no timeline".
   let timelineEvents: OrderTimelineEvent[] = [];
   try {
-    timelineEvents = (await sdk.orders.getTimeline(order.id)).events;
+    timelineEvents = (await scoped.orders.timeline(order.id)).events;
   } catch (error) {
     if (!(error instanceof NotFoundError)) {
       console.error(`Order timeline fetch failed for ${order.id}:`, error);

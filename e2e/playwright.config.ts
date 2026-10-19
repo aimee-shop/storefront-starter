@@ -21,7 +21,6 @@ const mockApiUrl = process.env.E2E_MOCK_API_URL || 'http://127.0.0.1:3099';
 const storefrontEnv: Record<string, string> = {
   ...process.env,
   NEXT_PUBLIC_CORE_API_URL: mockApiUrl,
-  AIMEE_PAYMENTS_API_URL: mockApiUrl,
   AIMEE_API_KEY: 'e2e-test-api-key',
   NEXT_PUBLIC_AIMEE_PUBLISHABLE_KEY: 'pk_test_e2e_publishable',
   NEXT_PUBLIC_STORE_ID: 'store-e2e-1',

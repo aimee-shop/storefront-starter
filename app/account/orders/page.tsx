@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { getCustomerSessionWithToken } from '@/lib/customer-session';
-import { customerSdk } from '@/lib/customer-sdk';
+import { sdk } from '@/lib/sdk';
 import { OrderCard } from '@/components/account/OrderCard';
 import { ProductPagination } from '@/components/products/ProductPagination';
 import { buttonVariants } from '@/components/ui/button-variants';
@@ -31,20 +31,16 @@ export default async function OrdersPage({
 
   // Customer-JWT-bound call; the API-key role deliberately lacks orders:read.
   // Failures propagate to the root error boundary -- never blank-but-200.
-  const ordersResponse = await customerSdk(session.accessToken).orders.list({
-    filters: { customerId: session.customer.id },
-    page,
-    limit: PAGE_SIZE,
-    sort: 'createdAt',
-    order: 'desc',
-  });
+  const ordersResponse = await sdk.storefront
+    .withCustomer(session.accessToken)
+    .orders.list({ page, limit: PAGE_SIZE });
 
   // Defense in depth (matches the detail page): trust the session-derived
   // filter, but never render a row that isn't the customer's own.
   const orders = (ordersResponse.data ?? []).filter(
     (order) => order.customerId === session.customer.id
   );
-  const total = ordersResponse.meta?.total ?? 0;
+  const total = ordersResponse.pagination.total;
   const totalPages = Math.ceil(total / PAGE_SIZE);
 
   return (

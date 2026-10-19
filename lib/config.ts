@@ -54,12 +54,6 @@ function parseStoreConfigRevalidate(): number {
 export const config = Object.freeze({
   /** Core API base URL. Non-secret; the NEXT_PUBLIC_ form is also used client-side. */
   coreApiUrl: process.env.NEXT_PUBLIC_CORE_API_URL,
-  /**
-   * Payments service base URL for PaymentIntent create (server-only).
-   * Defaults to core API URL when a gateway fronts both services.
-   */
-  paymentsApiUrl:
-    process.env.AIMEE_PAYMENTS_API_URL ?? process.env.NEXT_PUBLIC_CORE_API_URL,
   /** Store ID identifying this storefront's store context. Non-secret. */
   storeId: process.env.NEXT_PUBLIC_STORE_ID,
   /** API key with the "Storefront (Default)" role. Server-only secret. */

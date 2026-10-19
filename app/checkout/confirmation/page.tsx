@@ -5,7 +5,7 @@ import { NotFoundError } from '@aimee.shop/sdk';
 import type { Order } from '@aimee.shop/sdk';
 import { GuestOrderConfirmation } from '@/components/checkout/GuestOrderConfirmation';
 import { getCustomerSessionWithToken } from '@/lib/customer-session';
-import { customerSdk } from '@/lib/customer-sdk';
+import { sdk } from '@/lib/sdk';
 import {
   isOrderOwnedByCustomer,
   shouldRedirectAwayFromConfirmation,
@@ -44,9 +44,10 @@ export default async function CheckoutConfirmationPage({
   let lookupFailed = false;
 
   if (trimmedOrder) {
-    const sdk = customerSdk(session.accessToken);
     try {
-      order = await sdk.orders.getByOrderNumber(trimmedOrder);
+      order = await sdk.storefront
+        .withCustomer(session.accessToken)
+        .orders.get(trimmedOrder);
     } catch (error) {
       // Soft-home for missing orders (issue #16). Surface real outages.
       if (error instanceof NotFoundError) {

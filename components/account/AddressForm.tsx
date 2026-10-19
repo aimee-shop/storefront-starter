@@ -3,7 +3,7 @@
 import { useState, useTransition } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import type { CustomerAddress } from '@aimee.shop/sdk';
+import type { StorefrontAddress } from '@aimee.shop/sdk';
 import {
   createAddressAction,
   updateAddressAction,
@@ -22,7 +22,7 @@ import { Field, FieldError, FieldGroup, FieldLabel } from '@/components/ui/field
 import { FormAlert } from './FormAlert';
 
 function defaultsFromAddress(
-  address?: CustomerAddress | null
+  address?: StorefrontAddress | null
 ): AddressFormValues {
   return {
     type:
@@ -45,7 +45,7 @@ export function AddressForm({
   onSuccess,
   onCancel,
 }: {
-  address?: CustomerAddress | null;
+  address?: StorefrontAddress | null;
   onSuccess: () => void;
   onCancel: () => void;
 }) {

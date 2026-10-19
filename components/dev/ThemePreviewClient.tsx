@@ -198,7 +198,7 @@ export function ThemePreviewClient() {
               className="rounded-[var(--radius,0.625rem)] px-8 py-3 text-sm font-semibold transition-colors"
               style={{
                 backgroundColor: colors?.primary ?? 'var(--color-primary)',
-                color: '#FFFFFF',
+                color: 'var(--zb-cta-color)',
               }}
             >
               Shop Now
@@ -348,7 +348,7 @@ export function ThemePreviewClient() {
         className="py-12"
         style={{
           backgroundColor: colors?.footer ?? 'var(--color-footer)',
-          color: '#FFFFFF',
+          color: 'var(--zb-footer-foreground)',
         }}
       >
         <div className="mx-auto max-w-7xl px-4 text-center sm:px-6 lg:px-8">

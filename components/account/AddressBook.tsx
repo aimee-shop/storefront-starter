@@ -2,7 +2,7 @@
 
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
-import type { CustomerAddress } from '@aimee.shop/sdk';
+import type { StorefrontAddress } from '@aimee.shop/sdk';
 import { AddressCard } from '@/components/account/AddressCard';
 import { AddressForm } from '@/components/account/AddressForm';
 import {
@@ -20,9 +20,9 @@ import {
 } from '@/components/ui/dialog';
 
 function groupByType(
-  addresses: CustomerAddress[]
-): { type: AddressTypeValue; items: CustomerAddress[] }[] {
-  const buckets = new Map<AddressTypeValue, CustomerAddress[]>();
+  addresses: StorefrontAddress[]
+): { type: AddressTypeValue; items: StorefrontAddress[] }[] {
+  const buckets = new Map<AddressTypeValue, StorefrontAddress[]>();
   for (const type of ADDRESS_TYPES) {
     buckets.set(type, []);
   }
@@ -38,10 +38,10 @@ function groupByType(
   })).filter((group) => group.items.length > 0);
 }
 
-export function AddressBook({ addresses }: { addresses: CustomerAddress[] }) {
+export function AddressBook({ addresses }: { addresses: StorefrontAddress[] }) {
   const router = useRouter();
   const [dialogOpen, setDialogOpen] = useState(false);
-  const [editing, setEditing] = useState<CustomerAddress | null>(null);
+  const [editing, setEditing] = useState<StorefrontAddress | null>(null);
   const groups = groupByType(addresses);
 
   const openCreate = () => {
@@ -49,7 +49,7 @@ export function AddressBook({ addresses }: { addresses: CustomerAddress[] }) {
     setDialogOpen(true);
   };
 
-  const openEdit = (address: CustomerAddress) => {
+  const openEdit = (address: StorefrontAddress) => {
     setEditing(address);
     setDialogOpen(true);
   };

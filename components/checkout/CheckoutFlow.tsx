@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import dynamic from 'next/dynamic';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import type { CustomerAddress } from '@aimee.shop/sdk';
+import type { StorefrontAddress } from '@aimee.shop/sdk';
 import { useCartStore } from '@/stores/cart-store';
 import { useCheckoutStore } from '@/stores/checkout-store';
 import { CheckoutSteps } from '@/components/checkout/CheckoutSteps';
@@ -42,7 +42,7 @@ export function CheckoutFlow({
   customerEmail,
 }: {
   /** Saved customer addresses (signed-in only); empty for guests. */
-  savedAddresses?: CustomerAddress[];
+  savedAddresses?: StorefrontAddress[];
   /** Signed-in customer email for address form defaults. */
   customerEmail?: string | null;
 }) {
@@ -259,7 +259,7 @@ export function CheckoutFlow({
               id="checkout-shipping-heading"
               ref={shippingHeadingRef}
               tabIndex={-1}
-              className="text-lg font-semibold outline-none"
+              className="rounded-sm text-lg font-semibold focus:outline-2 focus:outline-offset-2 focus:outline-ring"
             >
               Shipping method
             </h2>
@@ -278,7 +278,7 @@ export function CheckoutFlow({
               id="checkout-payment-heading"
               ref={paymentHeadingRef}
               tabIndex={-1}
-              className="text-lg font-semibold outline-none"
+              className="rounded-sm text-lg font-semibold focus:outline-2 focus:outline-offset-2 focus:outline-ring"
             >
               Payment
             </h2>

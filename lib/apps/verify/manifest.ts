@@ -92,5 +92,6 @@ function assertManifestShape(value: unknown): StorefrontPackageManifest {
     );
   }
 
-  return m as unknown as StorefrontPackageManifest;
+  // `value` is still unknown. The checks above run against the same object.
+  return value as StorefrontPackageManifest;
 }

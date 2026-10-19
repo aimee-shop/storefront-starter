@@ -7,13 +7,9 @@ import {
   NotFoundError,
   ValidationError,
 } from '@aimee.shop/sdk';
-import type { DefaultAddressType } from '@aimee.shop/sdk';
+import type { StorefrontDefaultAddressType } from '@aimee.shop/sdk';
 import type { ZodError } from 'zod';
-import {
-  interpretAddressValidationResult,
-  isSoftValidationFailure,
-} from '@/lib/address-book';
-import { customerSdk } from '@/lib/customer-sdk';
+import { sdk } from '@/lib/sdk';
 import { getCustomerSessionWithToken } from '@/lib/customer-session';
 import type { AuthResult } from '@/lib/auth-form';
 import {
@@ -83,39 +79,6 @@ function mapSdkError(error: unknown): AuthResult {
   return { ok: false, formError: GENERIC_ERROR };
 }
 
-/**
- * Best-effort external validation. When the provider is unavailable or the
- * call fails for non-validation reasons, we still allow the save path to
- * proceed so local form schema remains the hard gate.
- */
-async function validateAddressDataInline(
-  customerId: string,
-  customers: ReturnType<typeof customerSdk>['customers'],
-  payload: ReturnType<typeof toAddressPayload>
-): Promise<AuthResult | null> {
-  try {
-    const result = await customers.validateAddressData(customerId, {
-      address1: payload.address1,
-      address2: payload.address2,
-      city: payload.city,
-      state: payload.state,
-      zip: payload.zip,
-      country: payload.country,
-    });
-    // Surface a clear form-level message; attach field hints when the
-    // provider flags specific parts via standardized suggestions.
-    return interpretAddressValidationResult(result, payload);
-  } catch (error) {
-    // Provider missing / 501 / network: do not block CRUD.
-    // Auth/permission failures still surface -- validation shares the same
-    // customers permission surface as CRUD.
-    if (!isSoftValidationFailure(error)) {
-      return mapSdkError(error);
-    }
-    return null;
-  }
-}
-
 export async function createAddressAction(
   input: AddressFormValues
 ): Promise<AuthResult> {
@@ -128,16 +91,8 @@ export async function createAddressAction(
   if (!session) return { ok: false, formError: UNAUTH_ERROR };
 
   const payload = toAddressPayload(parsed.data);
-  const customers = customerSdk(session.accessToken).customers;
-  const validationError = await validateAddressDataInline(
-    session.customer.id,
-    customers,
-    payload
-  );
-  if (validationError) return validationError;
-
   try {
-    await customers.addAddress(session.customer.id, payload);
+    await sdk.storefront.withCustomer(session.accessToken).addresses.create(payload);
   } catch (error) {
     return mapSdkError(error);
   }
@@ -163,16 +118,10 @@ export async function updateAddressAction(
   if (!session) return { ok: false, formError: UNAUTH_ERROR };
 
   const payload = toAddressPayload(parsed.data);
-  const customers = customerSdk(session.accessToken).customers;
-  const validationError = await validateAddressDataInline(
-    session.customer.id,
-    customers,
-    payload
-  );
-  if (validationError) return validationError;
-
   try {
-    await customers.updateAddress(session.customer.id, addressId, payload);
+    await sdk.storefront
+      .withCustomer(session.accessToken)
+      .addresses.update(addressId, payload);
   } catch (error) {
     return mapSdkError(error);
   }
@@ -192,10 +141,9 @@ export async function deleteAddressAction(
   if (!session) return { ok: false, formError: UNAUTH_ERROR };
 
   try {
-    await customerSdk(session.accessToken).customers.deleteAddress(
-      session.customer.id,
-      addressId
-    );
+    await sdk.storefront
+      .withCustomer(session.accessToken)
+      .addresses.delete(addressId);
   } catch (error) {
     return mapSdkError(error);
   }
@@ -206,7 +154,7 @@ export async function deleteAddressAction(
 
 export async function setDefaultAddressAction(
   addressId: string,
-  type: DefaultAddressType
+  type: StorefrontDefaultAddressType
 ): Promise<AuthResult> {
   if (!addressId) {
     return { ok: false, formError: 'That address could not be found.' };
@@ -222,11 +170,9 @@ export async function setDefaultAddressAction(
   if (!session) return { ok: false, formError: UNAUTH_ERROR };
 
   try {
-    await customerSdk(session.accessToken).customers.setDefaultAddress(
-      session.customer.id,
-      addressId,
-      type
-    );
+    await sdk.storefront
+      .withCustomer(session.accessToken)
+      .addresses.setDefault(addressId, type);
   } catch (error) {
     return mapSdkError(error);
   }

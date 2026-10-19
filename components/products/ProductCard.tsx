@@ -1,7 +1,12 @@
 import Image from 'next/image';
 import Link from 'next/link';
 import { Badge } from '@/components/ui/badge';
-import { formatPrice } from '@/lib/format';
+import {
+  formatListedPrice,
+  formatPrice,
+  priceRangeSpans,
+  type ListedProductPrice,
+} from '@/lib/format';
 
 export interface StorefrontProduct {
   id: string;
@@ -9,8 +14,10 @@ export interface StorefrontProduct {
   name: string;
   price?: number | null;
   compareAtPrice?: number | null;
+  /** ISO currency from the payload when there is no price range. */
+  currency?: string;
   images?: { url: string; alt?: string | null }[] | null;
-  priceRange?: { min: number; max: number } | null;
+  priceRange?: ListedProductPrice['priceRange'];
 }
 
 interface ProductCardProps {
@@ -20,7 +27,13 @@ interface ProductCardProps {
 export function ProductCard({ product }: ProductCardProps) {
   const image = product.images?.[0];
   const price = product.price ?? product.priceRange?.min;
-  const hasSale = product.compareAtPrice && product.compareAtPrice > (price ?? 0);
+  const currency = product.priceRange?.currency ?? product.currency;
+  const listed = formatListedPrice(product);
+  // A "From {min}" label has no single price to strike through.
+  const hasSale =
+    !priceRangeSpans(product.priceRange) &&
+    product.compareAtPrice &&
+    product.compareAtPrice > (price ?? 0);
 
   return (
     <Link
@@ -69,14 +82,14 @@ export function ProductCard({ product }: ProductCardProps) {
           {product.name}
         </h3>
         <div className="mt-2 flex items-baseline gap-2">
-          {price != null && (
+          {listed != null && (
             <span className="text-base font-semibold">
-              {formatPrice(price)}
+              {listed}
             </span>
           )}
           {hasSale && product.compareAtPrice != null && (
             <span className="text-sm text-muted-foreground line-through">
-              {formatPrice(product.compareAtPrice)}
+              {formatPrice(product.compareAtPrice, currency)}
             </span>
           )}
         </div>

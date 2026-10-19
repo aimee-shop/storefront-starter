@@ -1,9 +1,17 @@
 'use client';
 
 import { useMemo, useState } from 'react';
-import { useForm } from 'react-hook-form';
+import { useForm, useWatch } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import type { CheckoutAddress, CustomerAddress } from '@aimee.shop/sdk';
+import type { CheckoutAddress, StorefrontAddress } from '@aimee.shop/sdk';
+import {
+  COUNTRIES,
+  DEFAULT_COUNTRY,
+  resolveCountry,
+  resolveSubdivision,
+  subdivisionsFor,
+  toShippingAddressPayload,
+} from '@/lib/address-codes';
 import {
   shippingAddressSchema,
   type ShippingAddressValues,
@@ -11,15 +19,35 @@ import {
 import { useCheckoutStore } from '@/stores/checkout-store';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { NativeSelect } from '@/components/ui/native-select';
 import { Field, FieldError, FieldGroup, FieldLabel } from '@/components/ui/field';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { FormAlert } from '@/components/account/FormAlert';
 import { cn } from '@/lib/utils';
 
+/** Map stored country/state (codes or names) to the ISO codes the selects use. */
+function normalizeCountryState(
+  rawCountry: string | undefined,
+  rawState: string | undefined
+): { country: string; state: string } {
+  const country =
+    resolveCountry(rawCountry ?? '')?.country ?? DEFAULT_COUNTRY;
+  const state = rawState ?? '';
+  const subdivision = resolveSubdivision(country, state);
+  return {
+    country,
+    state: subdivision?.state ?? (subdivisionsFor(country) ? '' : state),
+  };
+}
+
 function defaultsFromSession(
   address: CheckoutAddress | undefined,
   customerEmail?: string | null
 ): ShippingAddressValues {
+  const { country, state } = normalizeCountryState(
+    address?.country || address?.countryName,
+    address?.state || address?.stateName
+  );
   return {
     email: address?.email ?? customerEmail ?? '',
     firstName: address?.firstName ?? '',
@@ -27,17 +55,21 @@ function defaultsFromSession(
     address1: address?.address1 ?? '',
     address2: address?.address2 ?? '',
     city: address?.city ?? '',
-    state: address?.state ?? '',
+    state,
     zip: address?.zip ?? '',
-    country: address?.country ?? '',
+    country,
     phone: address?.phone ?? '',
   };
 }
 
 function valuesFromSavedAddress(
-  address: CustomerAddress,
+  address: StorefrontAddress,
   email: string
 ): ShippingAddressValues {
+  const { country, state } = normalizeCountryState(
+    address.country,
+    address.state
+  );
   return {
     email,
     firstName: address.firstName ?? '',
@@ -45,14 +77,14 @@ function valuesFromSavedAddress(
     address1: address.address1 ?? '',
     address2: address.address2 ?? '',
     city: address.city ?? '',
-    state: address.state ?? '',
+    state,
     zip: address.zip ?? '',
-    country: address.country ?? '',
+    country,
     phone: address.phone ?? '',
   };
 }
 
-function formatSavedAddressLine(address: CustomerAddress): string {
+function formatSavedAddressLine(address: StorefrontAddress): string {
   const name = [address.firstName, address.lastName].filter(Boolean).join(' ');
   const cityLine = [address.city, address.state, address.zip]
     .filter(Boolean)
@@ -61,7 +93,7 @@ function formatSavedAddressLine(address: CustomerAddress): string {
 }
 
 /** Prefer shipping defaults, then any default, then stable id order. */
-function sortSavedForCheckout(addresses: CustomerAddress[]): CustomerAddress[] {
+function sortSavedForCheckout(addresses: StorefrontAddress[]): StorefrontAddress[] {
   return [...addresses].sort((a, b) => {
     if (a.isDefaultShipping !== b.isDefaultShipping) {
       return a.isDefaultShipping ? -1 : 1;
@@ -79,7 +111,7 @@ export function ShippingAddressForm({
   customerEmail,
 }: {
   initialAddress?: CheckoutAddress;
-  savedAddresses?: CustomerAddress[];
+  savedAddresses?: StorefrontAddress[];
   customerEmail?: string | null;
 }) {
   const updateShippingAddress = useCheckoutStore((s) => s.updateShippingAddress);
@@ -119,6 +151,8 @@ export function ShippingAddressForm({
     resolver: zodResolver(shippingAddressSchema),
     defaultValues: initialDefaults,
   });
+  const country = useWatch({ control: form.control, name: 'country' });
+  const subdivisionOptions = subdivisionsFor(country);
 
   const applySavedSelection = (value: string) => {
     setSelection(value);
@@ -137,19 +171,7 @@ export function ShippingAddressForm({
   const onSubmit = form.handleSubmit(async (values) => {
     setFormError(null);
     try {
-      await updateShippingAddress({
-        email: values.email,
-        firstName: values.firstName,
-        lastName: values.lastName,
-        address1: values.address1,
-        address2: values.address2 || undefined,
-        city: values.city,
-        state: values.state || undefined,
-        zip: values.zip || undefined,
-        country: values.country,
-        phone: values.phone || undefined,
-        useForBilling: true,
-      });
+      await updateShippingAddress(toShippingAddressPayload(values));
     } catch {
       setFormError('Could not save shipping address. Please try again.');
     }
@@ -290,12 +312,33 @@ export function ShippingAddressForm({
             <FieldError errors={[form.formState.errors.city]} />
           </Field>
           <Field>
-            <FieldLabel htmlFor="checkout-state">State / province (optional)</FieldLabel>
-            <Input
-              id="checkout-state"
-              autoComplete="address-level1"
-              {...form.register('state')}
-            />
+            <FieldLabel htmlFor="checkout-state">
+              {subdivisionOptions
+                ? 'State / province'
+                : 'State / province (optional)'}
+            </FieldLabel>
+            {subdivisionOptions ? (
+              <NativeSelect
+                id="checkout-state"
+                autoComplete="address-level1"
+                aria-invalid={!!form.formState.errors.state}
+                {...form.register('state')}
+              >
+                <option value="">Select...</option>
+                {subdivisionOptions.map((item) => (
+                  <option key={item.code} value={item.code}>
+                    {item.name}
+                  </option>
+                ))}
+              </NativeSelect>
+            ) : (
+              <Input
+                id="checkout-state"
+                autoComplete="address-level1"
+                {...form.register('state')}
+              />
+            )}
+            <FieldError errors={[form.formState.errors.state]} />
           </Field>
         </div>
 
@@ -310,13 +353,20 @@ export function ShippingAddressForm({
           </Field>
           <Field>
             <FieldLabel htmlFor="checkout-country">Country</FieldLabel>
-            <Input
+            <NativeSelect
               id="checkout-country"
               autoComplete="country"
-              placeholder="US"
               aria-invalid={!!form.formState.errors.country}
-              {...form.register('country')}
-            />
+              {...form.register('country', {
+                onChange: () => form.setValue('state', ''),
+              })}
+            >
+              {COUNTRIES.map((item) => (
+                <option key={item.code} value={item.code}>
+                  {item.name}
+                </option>
+              ))}
+            </NativeSelect>
             <FieldError errors={[form.formState.errors.country]} />
           </Field>
         </div>

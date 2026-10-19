@@ -16,6 +16,7 @@ function inventory(
     totalIncoming: 0,
     status,
     locationCount: 1,
+    hasLowStockLocation: false,
   };
 }
 

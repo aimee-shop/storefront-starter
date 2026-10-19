@@ -1,7 +1,7 @@
 import { getCachedPublicContent } from '@/lib/cms-content';
 import { fetchBlockProducts } from '@/lib/block-products';
 import { StorefrontBlockRenderer } from '@/components/blocks/BlockPage';
-import type { Block } from '@aimee.shop/blocks';
+import { toBlocks } from '@/lib/product-modules';
 
 interface CmsPageProps {
   collection: string;
@@ -12,11 +12,11 @@ interface CmsPageProps {
 }
 
 export async function CmsPage({ collection, slug, title, subtitle, children }: CmsPageProps) {
-  let blocks: Block[] | null = null;
+  let blocks: ReturnType<typeof toBlocks> = [];
 
   try {
     const entry = await getCachedPublicContent(collection, slug);
-    blocks = (entry.blocks as Block[]) ?? null;
+    blocks = toBlocks(entry.blocks);
   } catch {
     // Intentional slot fallback (storefront-content-architecture.md):
     // missing content or outage renders the "Content coming soon" state.

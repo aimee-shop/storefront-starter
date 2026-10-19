@@ -87,6 +87,7 @@
   --zb-heading-color: var(--color-dark);
   --zb-cta-bg: var(--color-primary);
   --zb-cta-color: #ffffff;
+  --zb-footer-foreground: #ffffff;
   --zb-spacing-md: 1.5rem;
   --zb-border-radius: 0.5rem;
   /* Headline / subheadline gradient pair: fill stays currentColor until

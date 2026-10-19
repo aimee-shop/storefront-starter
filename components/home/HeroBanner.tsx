@@ -3,6 +3,7 @@ import { fetchBlockProducts } from '@/lib/block-products';
 import { resolveSlot } from '@/lib/resolve-slot';
 import { StorefrontBlockRenderer } from '@/components/blocks/BlockPage';
 import type { Block } from '@aimee.shop/blocks';
+import { toBlocks } from '@/lib/product-modules';
 
 export async function HeroBanner() {
   const resolved = await resolveSlot('homepage-hero');
@@ -10,7 +11,7 @@ export async function HeroBanner() {
   if (resolved?.source === 'experience') {
     cmsBlocks = resolved.blocks;
   } else if (resolved?.source === 'cms' && resolved.payload.kind === 'entry') {
-    cmsBlocks = (resolved.payload.entry.blocks as Block[]) ?? null;
+    cmsBlocks = toBlocks(resolved.payload.entry.blocks);
   }
 
   if (cmsBlocks?.length) {

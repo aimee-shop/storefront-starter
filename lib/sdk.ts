@@ -11,8 +11,6 @@ import { config } from './config';
  * For client-side customer-authenticated operations (cart, checkout),
  * use getStorefront() from lib/storefront-client.ts
  * (@aimee.shop/sdk/storefront + createStorefrontClient).
- *
- * @aimee.shop/sdk@0.0.1 exports AimeeSDK (not AimeeSDK).
  */
 export const sdk = new AimeeSDK({
   apiKey: config.apiKey,

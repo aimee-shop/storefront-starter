@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { buildThemeCssOverrides } from './theme';
+import { FALLBACK_STORE_NAME, buildThemeCssOverrides, getFontUrl, resolveTheme } from './theme';
 
 describe('buildThemeCssOverrides', () => {
   it('emits locked gradient tokens for valid linear/radial/conic values', () => {
@@ -165,5 +165,115 @@ describe('buildThemeCssOverrides', () => {
     expect(css).not.toContain('--color-secondary');
     expect(css).toContain('--brand-highlight: #FF5733');
     expect(css).not.toContain('notAVar');
+  });
+
+  it('emits typography and layout, and drops unsafe custom values', () => {
+    const css = buildThemeCssOverrides({
+      typography: {
+        fontFamily: 'Inter',
+        headingFontFamily: 'serif',
+        baseFontSize: '18px',
+      },
+      layout: { borderRadius: '0.5rem', maxWidth: '72rem' },
+      custom: {
+        '--ok': '1rem',
+        '--bad': 'url(https://evil.example/x)',
+        '--html': '<script>',
+        '--long': 'x'.repeat(201),
+      },
+    });
+
+    expect(css).toContain("--font-sans: 'Inter'");
+    expect(css).toContain("--font-heading: 'serif'");
+    expect(css).toContain('font-size: 18px');
+    expect(css).toContain('--radius: 0.5rem');
+    expect(css).toContain('--max-width: 72rem');
+    expect(css).toContain('--ok: 1rem');
+    expect(css).not.toContain('--bad');
+    expect(css).not.toContain('--html');
+    expect(css).not.toContain('--long');
+  });
+
+  it('drops invalid typography and layout', () => {
+    const css = buildThemeCssOverrides({
+      typography: {
+        fontFamily: 'Comic Sans',
+        headingFontFamily: '',
+        baseFontSize: 'huge',
+      },
+      layout: { borderRadius: '10', maxWidth: 'full' },
+    });
+    expect(css).toBe('');
+  });
+});
+
+describe('getFontUrl', () => {
+  it('returns a stylesheet only for an allowlisted non-Geist family', () => {
+    expect(getFontUrl(undefined)).toBeNull();
+    expect(getFontUrl('')).toBeNull();
+    expect(getFontUrl('Geist')).toBeNull();
+    expect(getFontUrl('Comic Sans')).toBeNull();
+    expect(getFontUrl('system-ui')).toBeNull();
+    expect(getFontUrl('Inter')).toContain('fonts.googleapis.com');
+    expect(getFontUrl('Inter')).toContain('Inter');
+  });
+});
+
+describe('resolveTheme', () => {
+  it('returns the default theme when settings are missing', () => {
+    const theme = resolveTheme(null);
+    expect(theme.branding.storeName).toBe(FALLBACK_STORE_NAME);
+    expect(theme.colors.primary).toBe('#0066F7');
+    expect(theme.fontUrl).toBeNull();
+    expect(theme.cssOverrides).toBe('');
+  });
+
+  it('keeps valid overrides and falls back field by field', () => {
+    const themed = resolveTheme({
+      colors: {
+        primary: '#112233',
+        secondary: 'red',
+        accent: '#abc',
+        dark: '#000000',
+        light: '#ffffff',
+        footer: '#010101',
+        headerBackground: '#222222',
+      },
+      typography: {
+        fontFamily: 'Inter',
+        headingFontFamily: 'Playfair Display',
+        baseFontSize: '18px',
+      },
+      layout: { borderRadius: '0.5rem', maxWidth: '72rem' },
+      branding: {
+        storeName: 'Hat Co',
+        tagline: 'Hats',
+        logoUrl: '/logo.svg',
+        logoAltText: 'Hat',
+        faviconUrl: '/fav.ico',
+        ogImage: '/og.png',
+        socialLinks: { instagram: 'https://instagram.com/hat' },
+      },
+    });
+    expect(themed.colors.primary).toBe('#112233');
+    expect(themed.colors.secondary).toBe('#FB74C6');
+    expect(themed.typography.fontFamily).toBe('Inter');
+    expect(themed.typography.headingFontFamily).toBe('Playfair Display');
+    expect(themed.layout.borderRadius).toBe('0.5rem');
+    expect(themed.branding.storeName).toBe('Hat Co');
+    expect(themed.branding.socialLinks.instagram).toBe('https://instagram.com/hat');
+    expect(themed.fontUrl).toContain('Inter');
+    expect(themed.cssOverrides).toContain('--color-primary: #112233');
+
+    const fallback = resolveTheme({
+      typography: { fontFamily: 'nope', headingFontFamily: '', baseFontSize: 'huge' },
+      layout: { borderRadius: '10', maxWidth: 'full' },
+      branding: {},
+    });
+    expect(fallback.typography.fontFamily).toBe('Geist');
+    expect(fallback.layout.maxWidth).toBe('80rem');
+    expect(fallback.branding.storeName).toBe(FALLBACK_STORE_NAME);
+    expect(fallback.branding.socialLinks).toEqual({});
+    expect(fallback.fontUrl).toBeNull();
   });
 });

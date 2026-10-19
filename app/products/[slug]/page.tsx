@@ -3,7 +3,7 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { NotFoundError } from '@aimee.shop/sdk';
 import { sdk } from '@/lib/sdk';
-import { formatPrice } from '@/lib/format';
+import { formatListedPrice, formatPrice, priceRangeSpans } from '@/lib/format';
 import { ProductDetailImages } from '@/components/products/ProductDetailImages';
 import { ProductAttachedModules } from '@/components/products/ProductAttachedModules';
 import { ProductReviews } from '@/components/products/ProductReviews';
@@ -18,36 +18,8 @@ import {
   getAvailabilityState,
   isProductSellable,
   type AvailabilityState,
-  type VariantInventory,
 } from '@/lib/product-availability';
-
-/** Extended variant shape; inventory is only present with include: ['inventory']. */
-interface StorefrontProductVariant {
-  id: string;
-  sku: string;
-  isInventoryTracked?: boolean | null;
-  inventory?: VariantInventory | null;
-  options?: { optionValue: { value: string }; optionType?: { name: string } }[];
-}
-
-/** Extended product shape returned by the API with include[] expansions */
-interface StorefrontProductDetail {
-  id: string;
-  name: string;
-  slug: string;
-  description?: string;
-  productType?: string;
-  isAvailable: boolean;
-  isInventoryTracked?: boolean | null;
-  metaDescription?: string;
-  tags: string[];
-  price?: number | null;
-  compareAtPrice?: number | null;
-  images?: { url: string; alt?: string | null }[];
-  priceRange?: { min: number; max: number } | null;
-  categories?: { id: string; name: string; slug: string }[];
-  variants?: StorefrontProductVariant[];
-}
+import { toProductDetail } from '@/lib/catalog-view';
 
 const AVAILABILITY_DOT: Record<Exclude<AvailabilityState, 'unknown'>, string> = {
   'in-stock': 'bg-green-500',
@@ -93,13 +65,12 @@ export async function generateMetadata({ params }: ProductPageProps): Promise<Me
 export default async function ProductDetailPage({ params }: ProductPageProps) {
   const { slug } = await params;
 
-  let product: StorefrontProductDetail;
+  let product: ReturnType<typeof toProductDetail>;
   try {
     const response = await sdk.products.getBySlug(slug, {
       include: ['variants', 'categories', 'priceRange'],
     });
-    // SDK Product type lacks expanded fields (images, price, categories) returned by include[]
-    product = response as StorefrontProductDetail;
+    product = toProductDetail(response);
   } catch (error) {
     // Only a genuine 404 becomes the not-found page; outages and other
     // failures propagate to the root error boundary.
@@ -109,8 +80,14 @@ export default async function ProductDetailPage({ params }: ProductPageProps) {
 
   const images = product.images ?? [];
   const price = product.price ?? product.priceRange?.min;
+  const currency = product.priceRange?.currency ?? product.currency;
+  const listed = formatListedPrice(product);
   const compareAtPrice = product.compareAtPrice;
-  const hasSale = compareAtPrice && compareAtPrice > (price ?? 0);
+  // A "From {min}" label has no single price to strike through.
+  const hasSale =
+    !priceRangeSpans(product.priceRange) &&
+    compareAtPrice &&
+    compareAtPrice > (price ?? 0);
   const categories = product.categories ?? [];
   const percentOff = hasSale && price && compareAtPrice
     ? Math.round(((compareAtPrice - price) / compareAtPrice) * 100)
@@ -127,9 +104,7 @@ export default async function ProductDetailPage({ params }: ProductPageProps) {
     loadProductReviews(product.id),
   ]);
   const modules = groupByPlacement(moduleItems);
-  const variant =
-    (variants[0] as StorefrontProductVariant | undefined) ??
-    product.variants?.[0];
+  const variant = variants[0] ?? product.variants[0];
   const availabilityInput = {
     isAvailable: product.isAvailable,
     variantId: variant?.id,
@@ -201,14 +176,14 @@ export default async function ProductDetailPage({ params }: ProductPageProps) {
 
             {/* Price */}
             <div className="mt-3 flex items-baseline gap-2.5">
-              {price != null && (
+              {listed != null && (
                 <span className="text-2xl font-bold">
-                  {formatPrice(price)}
+                  {listed}
                 </span>
               )}
               {hasSale && compareAtPrice != null && (
                 <span className="text-base text-muted-foreground line-through">
-                  {formatPrice(compareAtPrice)}
+                  {formatPrice(compareAtPrice, currency)}
                 </span>
               )}
               {percentOff && (

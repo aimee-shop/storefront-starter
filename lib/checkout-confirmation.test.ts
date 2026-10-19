@@ -1,9 +1,12 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
   buildGuestConfirmationHandoff,
+  clearGuestConfirmationHandoff,
   isGuestHandoffValidForOrder,
   isOrderOwnedByCustomer,
+  readGuestConfirmationHandoff,
   resolveConfirmationOrderParam,
+  saveGuestConfirmationHandoff,
   shouldRedirectAwayFromConfirmation,
 } from './checkout-confirmation';
 
@@ -178,5 +181,64 @@ describe('isGuestHandoffValidForOrder', () => {
     expect(isGuestHandoffValidForOrder(handoff, 'ZS-9')).toBe(true);
     expect(isGuestHandoffValidForOrder(handoff, 'other')).toBe(false);
     expect(isGuestHandoffValidForOrder(null, 'ZS-9')).toBe(false);
+  });
+});
+
+describe('guest confirmation sessionStorage', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  const handoff = {
+    orderNumber: 'ZS-9',
+    totalAmount: '100',
+    currency: 'usd',
+    itemsCount: 1,
+    estimatedDelivery: '2026-07-04',
+    email: 'guest@example.com',
+    completedAt: '2026-07-01T00:00:00.000Z',
+  };
+
+  it('saves, reads, and clears a handoff', () => {
+    saveGuestConfirmationHandoff(handoff);
+    expect(readGuestConfirmationHandoff()).toEqual(handoff);
+    clearGuestConfirmationHandoff();
+    expect(readGuestConfirmationHandoff()).toBeNull();
+  });
+
+  it('ignores an empty store, bad JSON, and a payload without an order number', () => {
+    expect(readGuestConfirmationHandoff()).toBeNull();
+    window.sessionStorage.setItem('aimee-guest-order-confirmation', '{');
+    expect(readGuestConfirmationHandoff()).toBeNull();
+    window.sessionStorage.setItem(
+      'aimee-guest-order-confirmation',
+      JSON.stringify({ orderNumber: '  ', totalAmount: 10 }),
+    );
+    expect(readGuestConfirmationHandoff()).toBeNull();
+    window.sessionStorage.setItem(
+      'aimee-guest-order-confirmation',
+      JSON.stringify({ orderNumber: 'ZS-1' }),
+    );
+    expect(readGuestConfirmationHandoff()).toMatchObject({
+      orderNumber: 'ZS-1',
+      totalAmount: '0',
+      currency: 'usd',
+      itemsCount: 0,
+    });
+  });
+
+  it('swallows storage failures', () => {
+    vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {
+      throw new Error('quota');
+    });
+    expect(() => saveGuestConfirmationHandoff(handoff)).not.toThrow();
+    vi.spyOn(Storage.prototype, 'getItem').mockImplementation(() => {
+      throw new Error('blocked');
+    });
+    expect(readGuestConfirmationHandoff()).toBeNull();
+    vi.spyOn(Storage.prototype, 'removeItem').mockImplementation(() => {
+      throw new Error('blocked');
+    });
+    expect(() => clearGuestConfirmationHandoff()).not.toThrow();
   });
 });

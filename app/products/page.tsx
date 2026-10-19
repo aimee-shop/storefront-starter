@@ -9,7 +9,9 @@ import { ActiveFilters } from '@/components/products/ActiveFilters';
 import { ProductPagination } from '@/components/products/ProductPagination';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
 import { Separator } from '@/components/ui/separator';
+import type { Category } from '@aimee.shop/sdk';
 import type { StorefrontProduct } from '@/components/products/ProductCard';
+import { searchItemToProduct, toStorefrontProduct } from '@/lib/catalog-view';
 
 export async function generateMetadata({ searchParams }: ProductsPageProps): Promise<Metadata> {
   const params = await searchParams;
@@ -90,7 +92,7 @@ export default async function ProductsPage({ searchParams }: ProductsPageProps) 
   ]);
   const categories: FindableCategoryNode[] =
     categoriesResult.status === 'fulfilled'
-      ? (categoriesResult.value as FindableCategoryNode[])
+      ? toCategoryNodes(categoriesResult.value)
       : [];
   if (categoriesResult.status === 'rejected') {
     console.error(
@@ -139,8 +141,11 @@ export default async function ProductsPage({ searchParams }: ProductsPageProps) 
       page,
       limit: PAGE_SIZE,
     });
-    products = (results.items ?? []) as unknown as StorefrontProduct[];
-    searchFacets = results.facets as typeof searchFacets;
+    products = (results.items ?? []).flatMap((item) => {
+      const product = searchItemToProduct(item);
+      return product ? [product] : [];
+    });
+    searchFacets = results.facets;
     total = results.metadata?.totalCount ?? 0;
   } else {
     // Browse mode: use sdk.products.list()
@@ -158,7 +163,7 @@ export default async function ProductsPage({ searchParams }: ProductsPageProps) 
       filters,
       include: ['priceRange'],
     });
-    products = (productsResponse.data ?? []) as StorefrontProduct[];
+    products = (productsResponse.data ?? []).map(toStorefrontProduct);
     total = productsResponse.meta?.total ?? 0;
   }
 
@@ -275,6 +280,15 @@ interface FindableCategoryNode {
   slug: string;
   name: string;
   children?: FindableCategoryNode[];
+}
+
+function toCategoryNodes(nodes: Category[]): FindableCategoryNode[] {
+  return nodes.map((node) => ({
+    id: node.id,
+    slug: node.slug,
+    name: node.name,
+    children: node.children ? toCategoryNodes(node.children) : undefined,
+  }));
 }
 
 /** Recursively find a category name by slug in a tree */

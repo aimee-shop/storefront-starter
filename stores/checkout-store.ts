@@ -8,7 +8,7 @@ import type {
 } from '@aimee.shop/sdk';
 import {
   completeCheckoutSession,
-  createCheckoutPaymentIntent,
+  prepareCheckoutPayment,
 } from '@/app/checkout/actions';
 import {
   isValidPaymentIntent,
@@ -61,6 +61,19 @@ const initialState = {
   isLoading: false,
   error: null as string | null,
 };
+
+/** Refetch totals after a stale-total refusal; failures keep the old totals. */
+async function refreshTotals(checkoutId: string): Promise<void> {
+  try {
+    const totals = await getStorefront().checkout.calculateTotals(checkoutId, {
+      includeShipping: true,
+      includeTax: true,
+    });
+    useCheckoutStore.setState({ totals });
+  } catch {
+    // The payment error below still tells the shopper to review the total.
+  }
+}
 
 /** In-flight ensurePaymentIntent so concurrent calls share one create. */
 let ensurePaymentIntentInFlight: Promise<CheckoutPaymentIntent> | null = null;
@@ -219,7 +232,10 @@ export const useCheckoutStore = create<CheckoutState>()((set, get) => ({
       throw new Error('No checkout session');
     }
 
-    if (isValidPaymentIntent(paymentIntent)) {
+    if (
+      isValidPaymentIntent(paymentIntent) &&
+      paymentIntent.revision === (get().totals?.revision ?? session.revision)
+    ) {
       return paymentIntent;
     }
 
@@ -230,8 +246,18 @@ export const useCheckoutStore = create<CheckoutState>()((set, get) => ({
     set({ isLoading: true, error: null });
     ensurePaymentIntentInFlight = (async () => {
       try {
-        // Amount/currency are resolved server-side from the checkout session.
-        const intent = await createCheckoutPaymentIntent({ checkoutId });
+        // The platform prices the session; the client only names the revision
+        // of the total the shopper accepted.
+        const revision = get().totals?.revision ?? session.revision;
+        const result = await prepareCheckoutPayment({ checkoutId, revision });
+        if (!result.ok) {
+          if (result.stale) {
+            // Total moved under the shopper: show the new one before retrying.
+            await refreshTotals(checkoutId);
+          }
+          throw new Error(result.message);
+        }
+        const intent = result.intent;
         set({
           paymentIntent: intent,
           isLoading: false,

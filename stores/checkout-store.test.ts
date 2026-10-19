@@ -4,9 +4,10 @@ import type { CheckoutSession, TotalsBreakdown } from '@aimee.shop/sdk';
 const createIntentMock = vi.fn();
 const completeMock = vi.fn();
 const createSessionMock = vi.fn();
+const calculateTotalsMock = vi.fn();
 
 vi.mock('@/app/checkout/actions', () => ({
-  createCheckoutPaymentIntent: (...args: unknown[]) =>
+  prepareCheckoutPayment: (...args: unknown[]) =>
     createIntentMock(...args),
   completeCheckoutSession: (...args: unknown[]) => completeMock(...args),
 }));
@@ -18,7 +19,7 @@ vi.mock('@/lib/storefront-client', () => ({
       updateShippingAddress: vi.fn(),
       getShippingRates: vi.fn(),
       selectShippingMethod: vi.fn(),
-      calculateTotals: vi.fn(),
+      calculateTotals: (...args: unknown[]) => calculateTotalsMock(...args),
     },
   }),
 }));
@@ -33,6 +34,7 @@ function makeSession(overrides: Partial<CheckoutSession> = {}): CheckoutSession 
     cartId: 'cart-1',
     status: 'open',
     workflowState: 'payment_setup',
+    revision: 1,
     useShippingAsBilling: true,
     subtotal: '2000',
     discountTotal: '0',
@@ -63,6 +65,7 @@ function makeSession(overrides: Partial<CheckoutSession> = {}): CheckoutSession 
 
 function makeTotals(overrides: Partial<TotalsBreakdown> = {}): TotalsBreakdown {
   return {
+    revision: 1,
     subtotal: '2000',
     discountTotal: '0',
     taxTotal: '160',
@@ -98,6 +101,7 @@ beforeEach(() => {
   createIntentMock.mockReset();
   completeMock.mockReset();
   createSessionMock.mockReset();
+  calculateTotalsMock.mockReset();
   useCheckoutStore.setState({
     checkoutId: null,
     session: null,
@@ -111,18 +115,25 @@ beforeEach(() => {
 });
 
 describe('ensurePaymentIntent', () => {
-  it('creates intent via server action with checkoutId only', async () => {
+  it('prepares payment via server action with the accepted revision', async () => {
     seedPaymentReady();
     createIntentMock.mockResolvedValue({
-      clientSecret: 'pi_test_secret',
-      paymentId: 'pay-1',
-      publishableKey: 'pk_test_1',
-      status: 'pending',
+      ok: true,
+      intent: {
+        clientSecret: 'pi_test_secret',
+        paymentIntentId: 'pay-1',
+        revision: 1,
+        publishableKey: 'pk_test_1',
+        status: 'pending',
+      },
     });
 
     const intent = await useCheckoutStore.getState().ensurePaymentIntent();
 
-    expect(createIntentMock).toHaveBeenCalledWith({ checkoutId: 'chk-1' });
+    expect(createIntentMock).toHaveBeenCalledWith({
+      checkoutId: 'chk-1',
+      revision: 1,
+    });
     expect(intent.clientSecret).toBe('pi_test_secret');
     expect(useCheckoutStore.getState().paymentIntent?.publishableKey).toBe(
       'pk_test_1'
@@ -135,7 +146,8 @@ describe('ensurePaymentIntent', () => {
     useCheckoutStore.setState({
       paymentIntent: {
         clientSecret: 'pi_existing_secret',
-        paymentId: 'pay-existing',
+        paymentIntentId: 'pay-existing',
+        revision: 1,
         publishableKey: 'pk_test_1',
         status: 'pending',
       },
@@ -144,7 +156,7 @@ describe('ensurePaymentIntent', () => {
     const intent = await useCheckoutStore.getState().ensurePaymentIntent();
 
     expect(createIntentMock).not.toHaveBeenCalled();
-    expect(intent.paymentId).toBe('pay-existing');
+    expect(intent.paymentIntentId).toBe('pay-existing');
   });
 
   it('recreates when prior intent is not reusable (e.g. failed)', async () => {
@@ -152,36 +164,61 @@ describe('ensurePaymentIntent', () => {
     useCheckoutStore.setState({
       paymentIntent: {
         clientSecret: 'pi_old',
-        paymentId: 'pay-old',
+        paymentIntentId: 'pay-old',
+        revision: 1,
         publishableKey: 'pk_test_1',
         status: 'failed',
       },
     });
     createIntentMock.mockResolvedValue({
-      clientSecret: 'pi_new',
-      paymentId: 'pay-new',
-      publishableKey: 'pk_test_2',
-      status: 'pending',
+      ok: true,
+      intent: {
+        clientSecret: 'pi_new',
+        paymentIntentId: 'pay-new',
+        revision: 1,
+        publishableKey: 'pk_test_2',
+        status: 'pending',
+      },
     });
 
     const intent = await useCheckoutStore.getState().ensurePaymentIntent();
 
     expect(createIntentMock).toHaveBeenCalledOnce();
-    expect(intent.paymentId).toBe('pay-new');
+    expect(intent.paymentIntentId).toBe('pay-new');
   });
 
-  it('surfaces create errors and does not leave a half-ready intent', async () => {
+  it('surfaces refusals and does not leave a half-ready intent', async () => {
     seedPaymentReady();
-    createIntentMock.mockRejectedValue(new Error('payments:process required'));
+    createIntentMock.mockResolvedValue({
+      ok: false,
+      stale: false,
+      message: 'Could not start payment. Please try again.',
+    });
 
     await expect(
       useCheckoutStore.getState().ensurePaymentIntent()
-    ).rejects.toThrow(/payments:process/);
+    ).rejects.toThrow(/Could not start payment/);
 
     const state = useCheckoutStore.getState();
     expect(state.paymentIntent).toBeNull();
-    expect(state.error).toMatch(/payments:process/);
+    expect(state.error).toMatch(/Could not start payment/);
     expect(state.isLoading).toBe(false);
+  });
+
+  it('refetches totals when the accepted total went stale', async () => {
+    seedPaymentReady();
+    createIntentMock.mockResolvedValue({
+      ok: false,
+      stale: true,
+      message: 'Your order total changed. Review the updated total and try again.',
+    });
+    calculateTotalsMock.mockResolvedValue(makeTotals({ revision: 2, total: '2700' }));
+
+    await expect(
+      useCheckoutStore.getState().ensurePaymentIntent()
+    ).rejects.toThrow(/total changed/);
+
+    expect(useCheckoutStore.getState().totals?.revision).toBe(2);
   });
 });
 
@@ -215,7 +252,8 @@ describe('completeCheckout', () => {
     useCheckoutStore.setState({
       paymentIntent: {
         clientSecret: 'pi_x_secret',
-        paymentId: 'pay-1',
+        paymentIntentId: 'pay-1',
+        revision: 1,
         publishableKey: 'pk_test',
         status: 'pending',
       },

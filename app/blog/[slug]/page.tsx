@@ -14,7 +14,7 @@ interface BlogPostEntry {
   title: string;
   excerpt?: string;
   featuredImageUrl?: string;
-  publishedAt: string;
+  publishedAt?: string;
   author?: string;
   tags: string[];
   blocks?: Block[];
@@ -93,17 +93,23 @@ export default async function BlogPostPage({ params }: BlogPostPageProps) {
           <h1 className="text-3xl font-bold tracking-tight sm:text-4xl lg:text-5xl">
             {entry.title}
           </h1>
-          <div className="flex items-center gap-2 text-sm text-muted-foreground">
-            {entry.author && <span>{entry.author}</span>}
-            {entry.author && <span aria-hidden="true">&middot;</span>}
-            <time dateTime={entry.publishedAt}>
-              {new Date(entry.publishedAt).toLocaleDateString('en-US', {
-                year: 'numeric',
-                month: 'long',
-                day: 'numeric',
-              })}
-            </time>
-          </div>
+          {(entry.author || entry.publishedAt) && (
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              {entry.author && <span>{entry.author}</span>}
+              {entry.author && entry.publishedAt && (
+                <span aria-hidden="true">&middot;</span>
+              )}
+              {entry.publishedAt && (
+                <time dateTime={entry.publishedAt}>
+                  {new Date(entry.publishedAt).toLocaleDateString('en-US', {
+                    year: 'numeric',
+                    month: 'long',
+                    day: 'numeric',
+                  })}
+                </time>
+              )}
+            </div>
+          )}
         </header>
 
         {/* Featured image */}

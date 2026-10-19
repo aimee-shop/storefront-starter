@@ -1,23 +1,6 @@
+import { collectBlockProductIds } from '@aimee.shop/blocks';
 import type { Block, ProductData } from '@aimee.shop/blocks';
 import { sdk } from './sdk';
-
-function collectProductIds(blocks: Block[]): string[] {
-  const ids = new Set<string>();
-  for (const block of blocks) {
-    if (block.type === 'product_card') {
-      const id = block.content.productId;
-      if (typeof id === 'string' && id) ids.add(id);
-    } else if (block.type === 'product_grid') {
-      const list = block.content.productIds;
-      if (Array.isArray(list)) {
-        for (const id of list) {
-          if (typeof id === 'string' && id) ids.add(id);
-        }
-      }
-    }
-  }
-  return [...ids];
-}
 
 /**
  * Resolve the product data referenced by product_card / product_grid blocks
@@ -30,7 +13,7 @@ function collectProductIds(blocks: Block[]): string[] {
 export async function fetchBlockProducts(
   blocks: Block[],
 ): Promise<Record<string, ProductData> | undefined> {
-  const ids = collectProductIds(blocks);
+  const ids = collectBlockProductIds(blocks);
   if (ids.length === 0) {
     return undefined;
   }
@@ -47,6 +30,7 @@ export async function fetchBlockProducts(
       id: product.id,
       name: product.name,
       slug: product.slug,
+      // Blocks format major units. getPriceRanges min/max are already major-unit strings.
       price: product.priceRange ? Number(product.priceRange.min) : undefined,
       currency: product.priceRange?.currency,
       images: product.primaryImage

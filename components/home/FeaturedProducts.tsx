@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { sdk } from '@/lib/sdk';
 import { ProductGrid } from '@/components/products/ProductGrid';
 import type { StorefrontProduct } from '@/components/products/ProductCard';
+import { toStorefrontProduct } from '@/lib/catalog-view';
 
 export async function FeaturedProducts() {
   let products: StorefrontProduct[] = [];
@@ -12,7 +13,7 @@ export async function FeaturedProducts() {
       filters: { isEnabled: true },
       include: ['priceRange'],
     });
-    products = (response.data ?? []) as StorefrontProduct[];
+    products = (response.data ?? []).map(toStorefrontProduct);
   } catch {
     // Intentional slot fallback (storefront-content-architecture.md):
     // homepage slots degrade silently; they never take down the homepage.

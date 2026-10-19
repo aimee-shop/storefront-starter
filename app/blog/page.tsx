@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import { sdk } from '@/lib/sdk';
 import { BlogGrid } from '@/components/blog/BlogGrid';
+import type { PublicContentEntry } from '@aimee.shop/sdk';
 import type { BlogEntry } from '@/components/blog/BlogCard';
 
 export const metadata: Metadata = {
@@ -23,7 +24,7 @@ export default async function BlogPage() {
 
   try {
     const response = await sdk.cms.public.listContent('blog');
-    entries = (response.items ?? []) as BlogEntry[];
+    entries = (response.items ?? []).map(toBlogEntry);
   } catch (error) {
     console.error('[storefront] blog list fetch failed:', error);
     loadFailed = true;
@@ -42,6 +43,18 @@ export default async function BlogPage() {
       </div>
     </div>
   );
+}
+
+function toBlogEntry(entry: PublicContentEntry): BlogEntry {
+  return {
+    slug: entry.slug,
+    title: entry.title,
+    excerpt: entry.excerpt ?? undefined,
+    featuredImageUrl: entry.featuredImageUrl ?? undefined,
+    publishedAt: entry.publishedAt || undefined,
+    author: entry.author ?? undefined,
+    tags: entry.tags,
+  };
 }
 
 function BlogLoadError() {

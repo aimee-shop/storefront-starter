@@ -7,7 +7,7 @@ export interface BlogEntry {
   title: string;
   excerpt?: string;
   featuredImageUrl?: string;
-  publishedAt: string;
+  publishedAt?: string;
   author?: string;
   tags: string[];
 }
@@ -58,11 +58,17 @@ export function BlogCard({ entry }: BlogCardProps) {
         {entry.excerpt && (
           <p className="mt-2 line-clamp-2 text-sm leading-relaxed text-muted-foreground">{entry.excerpt}</p>
         )}
-        <div className="mt-3 flex items-center gap-2 text-xs text-muted-foreground">
-          {entry.author && <span>{entry.author}</span>}
-          {entry.author && <span aria-hidden="true">&middot;</span>}
-          <time dateTime={entry.publishedAt}>{formatDate(entry.publishedAt)}</time>
-        </div>
+        {(entry.author || entry.publishedAt) && (
+          <div className="mt-3 flex items-center gap-2 text-xs text-muted-foreground">
+            {entry.author && <span>{entry.author}</span>}
+            {entry.author && entry.publishedAt && (
+              <span aria-hidden="true">&middot;</span>
+            )}
+            {entry.publishedAt && (
+              <time dateTime={entry.publishedAt}>{formatDate(entry.publishedAt)}</time>
+            )}
+          </div>
+        )}
       </div>
     </Link>
   );

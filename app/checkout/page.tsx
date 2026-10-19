@@ -1,10 +1,10 @@
-import type { CustomerAddress } from '@aimee.shop/sdk';
+import type { StorefrontAddress } from '@aimee.shop/sdk';
 import { getStoreConfig } from '@/lib/store-config';
 import {
   getCustomerSession,
   getCustomerSessionWithToken,
 } from '@/lib/customer-session';
-import { customerSdk } from '@/lib/customer-sdk';
+import { sdk } from '@/lib/sdk';
 import { CheckoutFlow } from '@/components/checkout/CheckoutFlow';
 import { GuestCheckoutSignIn } from '@/components/checkout/GuestCheckoutSignIn';
 
@@ -23,7 +23,7 @@ export default async function CheckoutPage() {
     return <GuestCheckoutSignIn />;
   }
 
-  let savedAddresses: CustomerAddress[] = [];
+  let savedAddresses: StorefrontAddress[] = [];
   let customerEmail: string | null = customer?.email ?? null;
 
   if (customer) {
@@ -31,9 +31,9 @@ export default async function CheckoutPage() {
     if (session) {
       customerEmail = session.customer.email ?? customerEmail;
       try {
-        const addresses = await customerSdk(
-          session.accessToken
-        ).customers.getAddresses(session.customer.id);
+        const addresses = await sdk.storefront
+          .withCustomer(session.accessToken)
+          .addresses.list();
         savedAddresses = (addresses ?? []).filter(
           (address) => address.customerId === session.customer.id
         );

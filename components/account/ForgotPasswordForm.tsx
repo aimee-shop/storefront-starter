@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { forgotPasswordAction } from '@/app/account/actions';
+import { applyAuthResult } from '@/lib/auth-form';
 import {
   forgotPasswordSchema,
   type ForgotPasswordValues,
@@ -12,10 +13,12 @@ import {
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Field, FieldError, FieldGroup, FieldLabel } from '@/components/ui/field';
+import { FormAlert } from './FormAlert';
 
 export function ForgotPasswordForm({ onBack }: { onBack: () => void }) {
   const [isPending, startTransition] = useTransition();
   const [submitted, setSubmitted] = useState(false);
+  const [formError, setFormError] = useState<string | null>(null);
   const form = useForm<ForgotPasswordValues>({
     resolver: zodResolver(forgotPasswordSchema),
     defaultValues: { email: '' },
@@ -48,17 +51,23 @@ export function ForgotPasswordForm({ onBack }: { onBack: () => void }) {
   }
 
   const onSubmit = form.handleSubmit((values) => {
+    setFormError(null);
     startTransition(async () => {
-      await forgotPasswordAction(values);
-      // Always shows the same confirmation -- the response must not reveal
-      // whether an account exists for this email.
-      setSubmitted(true);
+      const result = await forgotPasswordAction(values);
+      // 4xx and success share the same confirmation so the response does not
+      // reveal whether an account exists. Outages stay on the form.
+      if (!result || result.ok) {
+        setSubmitted(true);
+        return;
+      }
+      applyAuthResult(result, form.setError, setFormError);
     });
   });
 
   return (
     <form onSubmit={onSubmit} noValidate>
       <FieldGroup>
+        <FormAlert message={formError} />
         <p className="text-sm text-muted-foreground">
           Enter your email and we&apos;ll send you a code to reset your
           password.

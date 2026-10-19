@@ -6,8 +6,6 @@ import { sdk } from './sdk';
 import { config } from './config';
 import type { StorefrontMarketOption } from './market-types';
 
-export type { StorefrontMarketOption } from './market-types';
-
 /**
  * Load markets enabled for the current store (server-only).
  * Used to populate the region picker. Fail soft: empty list hides the picker

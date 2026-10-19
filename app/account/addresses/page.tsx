@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { getCustomerSessionWithToken } from '@/lib/customer-session';
-import { customerSdk } from '@/lib/customer-sdk';
+import { sdk } from '@/lib/sdk';
 import { AddressBook } from '@/components/account/AddressBook';
 
 export const metadata: Metadata = {
@@ -17,11 +17,10 @@ export default async function AddressesPage() {
   const session = await getCustomerSessionWithToken();
   if (!session) redirect('/account');
 
-  // Customer-JWT dual-header call (same pattern as order history). The
-  // storefront.withCustomer surface does not expose .customers yet.
-  const addresses = await customerSdk(session.accessToken).customers.getAddresses(
-    session.customer.id
-  );
+  // Ownership is enforced server-side from the customer JWT.
+  const addresses = await sdk.storefront
+    .withCustomer(session.accessToken)
+    .addresses.list();
 
   // Defense in depth: never render another customer's address if the API
   // ever returns a wider set.

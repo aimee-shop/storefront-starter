@@ -102,8 +102,11 @@ export function CheckoutPaymentStep() {
         return;
       }
 
-      // Stripe PI id (pi_...); 3DS is handled inside confirmCardPayment.
-      const completionResult = await completeCheckout(result.paymentIntentId);
+      // 3DS is handled inside confirmCardPayment. complete takes the id from
+      // preparePayment, not the Stripe PaymentIntent id.
+      const completionResult = await completeCheckout(
+        paymentIntent.paymentIntentId
+      );
       const email =
         useCheckoutStore.getState().session?.shippingAddress?.email ?? null;
       const guestHandoff = buildGuestConfirmationHandoff(completionResult, {

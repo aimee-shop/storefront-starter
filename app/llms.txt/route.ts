@@ -5,7 +5,7 @@ import { THEME_PRESETS } from '@/lib/theme-presets';
 /**
  * Proxy route for llms.txt - serves AI discovery metadata for crawlers.
  *
- * Proxies to: GET /public/stores/:storeId/llms.txt on Core API
+ * Proxies to: GET /v1/public/stores/:storeId/llms.txt on Core API
  * The backend generates markdown with store info, categories, and featured products.
  * The storefront appends theme preset metadata for AI toolkit discovery.
  *
@@ -24,7 +24,7 @@ export async function GET(): Promise<NextResponse> {
 
   try {
     const response = await fetch(
-      `${coreApiUrl}/public/stores/${storeId}/llms.txt`,
+      `${coreApiUrl}/v1/public/stores/${storeId}/llms.txt`,
       { next: { revalidate: 3600 } } // 1-hour ISR cache
     );
 

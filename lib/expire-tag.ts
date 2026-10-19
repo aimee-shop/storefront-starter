@@ -7,4 +7,7 @@ import { revalidateTag } from 'next/cache';
  * is immediate in Next source but unproven on Vercel (profile presence may
  * map to tag invalidation / SWR).
  */
-export const expireTagNow = revalidateTag as unknown as (tag: string) => void;
+export function expireTagNow(tag: string): void {
+  const revalidateWithoutProfile = revalidateTag as (tag: string) => undefined;
+  revalidateWithoutProfile(tag);
+}

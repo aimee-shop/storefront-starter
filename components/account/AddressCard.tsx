@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useTransition } from 'react';
-import type { CustomerAddress } from '@aimee.shop/sdk';
+import type { StorefrontAddress } from '@aimee.shop/sdk';
 import {
   deleteAddressAction,
   setDefaultAddressAction,
@@ -14,7 +14,7 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 
-function formatCityLine(address: CustomerAddress): string {
+function formatCityLine(address: StorefrontAddress): string {
   const locality = [address.city, address.state].filter(Boolean).join(', ');
   if (locality && address.zip) return `${locality} ${address.zip}`;
   return locality || address.zip || '';
@@ -25,8 +25,8 @@ export function AddressCard({
   onEdit,
   onMutated,
 }: {
-  address: CustomerAddress;
-  onEdit: (address: CustomerAddress) => void;
+  address: StorefrontAddress;
+  onEdit: (address: StorefrontAddress) => void;
   onMutated: () => void;
 }) {
   const [isPending, startTransition] = useTransition();
