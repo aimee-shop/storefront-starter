@@ -9,12 +9,18 @@ import type {
 import {
   completeCheckoutSession,
   prepareCheckoutPayment,
+  type PrepareCheckoutPaymentResult,
 } from '@/app/checkout/actions';
 import {
   isValidPaymentIntent,
   type CheckoutPaymentIntent,
 } from '@/lib/checkout-payment';
 import { getStorefront } from '@/lib/storefront-client';
+
+/** `savePaymentMethod`: the shopper is paying with a saved card (binds their Stripe customer). */
+export interface PaymentIntentOptions {
+  savePaymentMethod?: boolean;
+}
 
 interface CheckoutState {
   checkoutId: string | null;
@@ -32,7 +38,8 @@ interface CheckoutState {
   updateShippingAddress: (address: UpdateShippingAddressDto) => Promise<void>;
   fetchShippingRates: () => Promise<void>;
   selectShippingRate: (rate: CheckoutShippingRate) => Promise<void>;
-  ensurePaymentIntent: () => Promise<CheckoutPaymentIntent>;
+  ensurePaymentIntent: (options?: PaymentIntentOptions) => Promise<CheckoutPaymentIntent>;
+  preparePaymentForConfirm: (options?: PaymentIntentOptions) => Promise<CheckoutPaymentIntent>;
   clearPaymentIntent: () => void;
   completeCheckout: (paymentIntentId: string) => Promise<CheckoutCompletionResult>;
   reset: () => void;
@@ -72,6 +79,62 @@ async function refreshTotals(checkoutId: string): Promise<void> {
     useCheckoutStore.setState({ totals });
   } catch {
     // The payment error below still tells the shopper to review the total.
+  }
+}
+
+type PrepareRefusal = Extract<PrepareCheckoutPaymentResult, { ok: false }>;
+
+const PREPARE_RETRIES = 2;
+const MAX_PREPARE_RETRY_WAIT_MS = 3000;
+
+/** preparePayment, retried on transient refusals (attempt retiring, revision conflict). */
+async function prepareWithRetry(
+  checkoutId: string,
+  revision: number,
+  options: PaymentIntentOptions = {}
+): Promise<PrepareCheckoutPaymentResult> {
+  for (let attempt = 0; ; attempt++) {
+    const result = await prepareCheckoutPayment({
+      checkoutId,
+      revision,
+      savePaymentMethod: options.savePaymentMethod,
+    });
+    if (result.ok || result.reason !== 'retry' || attempt >= PREPARE_RETRIES) {
+      return result;
+    }
+    const waitMs = Math.min(
+      (result.retryAfterSeconds ?? 1) * 1000,
+      MAX_PREPARE_RETRY_WAIT_MS
+    );
+    await new Promise((resolve) => setTimeout(resolve, waitMs));
+  }
+}
+
+/** Show the new price after a stale refusal, or send the shopper back to shipping. */
+async function applyPrepareRefusal(
+  checkoutId: string,
+  refusal: PrepareRefusal
+): Promise<void> {
+  if (refusal.reason === 'stale') {
+    const current = useCheckoutStore.getState().totals;
+    if (current && refusal.totals && refusal.revision !== undefined) {
+      useCheckoutStore.setState({
+        totals: { ...current, ...refusal.totals, revision: refusal.revision },
+      });
+    } else {
+      await refreshTotals(checkoutId);
+    }
+    return;
+  }
+  if (refusal.reason === 'shipping') {
+    const { session } = useCheckoutStore.getState();
+    useCheckoutStore.setState({
+      paymentIntent: null,
+      shippingRates: null,
+      session: session
+        ? { ...session, workflowState: 'shipping_selection' }
+        : session,
+    });
   }
 }
 
@@ -226,7 +289,7 @@ export const useCheckoutStore = create<CheckoutState>()((set, get) => ({
     }
   },
 
-  ensurePaymentIntent: async () => {
+  ensurePaymentIntent: async (options) => {
     const { checkoutId, session, paymentIntent } = get();
     if (!checkoutId || !session) {
       throw new Error('No checkout session');
@@ -249,12 +312,9 @@ export const useCheckoutStore = create<CheckoutState>()((set, get) => ({
         // The platform prices the session; the client only names the revision
         // of the total the shopper accepted.
         const revision = get().totals?.revision ?? session.revision;
-        const result = await prepareCheckoutPayment({ checkoutId, revision });
+        const result = await prepareWithRetry(checkoutId, revision, options);
         if (!result.ok) {
-          if (result.stale) {
-            // Total moved under the shopper: show the new one before retrying.
-            await refreshTotals(checkoutId);
-          }
+          await applyPrepareRefusal(checkoutId, result);
           throw new Error(result.message);
         }
         const intent = result.intent;
@@ -282,6 +342,28 @@ export const useCheckoutStore = create<CheckoutState>()((set, get) => ({
     return ensurePaymentIntentInFlight;
   },
 
+  preparePaymentForConfirm: async (options) => {
+    const { checkoutId, session } = get();
+    if (!checkoutId || !session) {
+      throw new Error('No checkout session');
+    }
+
+    // Re-price right before confirm so Stripe authorizes the total on screen,
+    // not the one frozen when the card form loaded. The same revision returns
+    // the same intent. A refusal keeps paymentIntent so the card form stays
+    // mounted for the next attempt.
+    const revision = get().totals?.revision ?? session.revision;
+    set({ error: null });
+    const result = await prepareWithRetry(checkoutId, revision, options);
+    if (!result.ok) {
+      await applyPrepareRefusal(checkoutId, result);
+      set({ error: result.message });
+      throw new Error(result.message);
+    }
+    set({ paymentIntent: result.intent, error: null });
+    return result.intent;
+  },
+
   clearPaymentIntent: () => set({ paymentIntent: null }),
 
   completeCheckout: async (paymentIntentId) => {
@@ -296,10 +378,14 @@ export const useCheckoutStore = create<CheckoutState>()((set, get) => ({
     set({ isLoading: true, error: null });
     try {
       // Server action (sk) -- checkout:complete is not on the pk ceiling.
-      const completion = await completeCheckoutSession({
+      const result = await completeCheckoutSession({
         checkoutId,
         paymentIntentId,
       });
+      if (!result.ok) {
+        throw new Error(result.message);
+      }
+      const { completion } = result;
       const currentSession = get().session;
       set({
         completion,

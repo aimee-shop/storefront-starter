@@ -97,8 +97,8 @@ const entry = await sdk.cms.public.getContent('blog', slug);
 Theme customization via CSS custom properties in `app/globals.css`:
 ```css
 :root {
-  --zb-heading-color: #1F1F1F;
-  --zb-cta-bg: #385CAD;
+  --aimee-heading-color: #1F1F1F;
+  --aimee-cta-bg: #385CAD;
 }
 ```
 

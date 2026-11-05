@@ -11,13 +11,13 @@ describe('buildThemeCssOverrides', () => {
     });
 
     expect(css).toContain(
-      '--zb-headline-gradient: linear-gradient(90deg, #FF5733, #00AA88)',
+      '--aimee-headline-gradient: linear-gradient(90deg, #FF5733, #00AA88)',
     );
-    expect(css).toContain('--zb-headline-text-fill: transparent');
+    expect(css).toContain('--aimee-headline-text-fill: transparent');
     expect(css).toContain(
-      '--zb-subheadline-gradient: radial-gradient(circle, #111 0%, #000 100%)',
+      '--aimee-subheadline-gradient: radial-gradient(circle, #111 0%, #000 100%)',
     );
-    expect(css).toContain('--zb-subheadline-text-fill: transparent');
+    expect(css).toContain('--aimee-subheadline-text-fill: transparent');
   });
 
   it('emits a conic headline gradient with the fill pair', () => {
@@ -28,10 +28,10 @@ describe('buildThemeCssOverrides', () => {
     });
 
     expect(css).toContain(
-      '--zb-headline-gradient: conic-gradient(from 90deg, #000, #fff)',
+      '--aimee-headline-gradient: conic-gradient(from 90deg, #000, #fff)',
     );
-    expect(css).toContain('--zb-headline-text-fill: transparent');
-    expect(css).not.toContain('--zb-subheadline-gradient');
+    expect(css).toContain('--aimee-headline-text-fill: transparent');
+    expect(css).not.toContain('--aimee-subheadline-gradient');
   });
 
   it('drops url(), expression(), javascript:, @import, backslash, empty, and oversized gradients', () => {
@@ -112,15 +112,15 @@ describe('buildThemeCssOverrides', () => {
       },
     });
 
-    expect(css).toContain('--zb-hero-cta-bg: #111111');
-    expect(css).toContain('--zb-hero-cta-color: #FFFFFF');
-    expect(css).toContain('--zb-hero-cta-hover-bg: #222222');
-    expect(css).toContain('--zb-hero-cta-hover-color: #EEEEEE');
-    expect(css).toContain('--zb-hero-cta-border-color: #333333');
-    expect(css).toContain('--zb-hero-cta-padding: 0.75rem 1.5rem');
-    expect(css).toContain('--zb-hero-cta-font-weight: 600');
-    expect(css).toContain('--zb-hero-cta-text-transform: uppercase');
-    expect(css).not.toContain('--zb-hero-cta-radius');
+    expect(css).toContain('--aimee-hero-cta-bg: #111111');
+    expect(css).toContain('--aimee-hero-cta-color: #FFFFFF');
+    expect(css).toContain('--aimee-hero-cta-hover-bg: #222222');
+    expect(css).toContain('--aimee-hero-cta-hover-color: #EEEEEE');
+    expect(css).toContain('--aimee-hero-cta-border-color: #333333');
+    expect(css).toContain('--aimee-hero-cta-padding: 0.75rem 1.5rem');
+    expect(css).toContain('--aimee-hero-cta-font-weight: 600');
+    expect(css).toContain('--aimee-hero-cta-text-transform: uppercase');
+    expect(css).not.toContain('--aimee-hero-cta-radius');
   });
 
   it('drops invalid heroCta color, padding, fontWeight, and textTransform', () => {
@@ -136,11 +136,11 @@ describe('buildThemeCssOverrides', () => {
       },
     });
 
-    expect(css).toContain('--zb-hero-cta-radius: 1rem');
-    expect(css).not.toContain('--zb-hero-cta-bg');
-    expect(css).not.toContain('--zb-hero-cta-padding');
-    expect(css).not.toContain('--zb-hero-cta-font-weight');
-    expect(css).not.toContain('--zb-hero-cta-text-transform');
+    expect(css).toContain('--aimee-hero-cta-radius: 1rem');
+    expect(css).not.toContain('--aimee-hero-cta-bg');
+    expect(css).not.toContain('--aimee-hero-cta-padding');
+    expect(css).not.toContain('--aimee-hero-cta-font-weight');
+    expect(css).not.toContain('--aimee-hero-cta-text-transform');
   });
 
   it('does not emit components.cta', () => {
@@ -165,6 +165,15 @@ describe('buildThemeCssOverrides', () => {
     expect(css).not.toContain('--color-secondary');
     expect(css).toContain('--brand-highlight: #FF5733');
     expect(css).not.toContain('notAVar');
+  });
+
+  it('derives the primary hover from a valid merchant primary only', () => {
+    expect(buildThemeCssOverrides({ colors: { primary: '#C2410C' } })).toContain(
+      '--color-primary-hover: color-mix(in oklab, #C2410C, black 15%)',
+    );
+    expect(
+      buildThemeCssOverrides({ colors: { primary: 'red', accent: '#00B2FD' } }),
+    ).not.toContain('--color-primary-hover');
   });
 
   it('emits typography and layout, and drops unsafe custom values', () => {

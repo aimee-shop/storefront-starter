@@ -6,6 +6,10 @@
 export interface SavedPaymentMethod {
   id: string;
   customerId: string;
+  /** PSP that vaulted the method (e.g. 'stripe'). */
+  provider: string;
+  /** PSP method id (Stripe pm_...). Not secret; Stripe.js needs it to confirm. */
+  providerMethodId: string;
   type: string;
   cardBrand: string | null;
   cardLastFour: string | null;

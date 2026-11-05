@@ -1,6 +1,9 @@
 'use server';
 
-import type { CheckoutCompletionResult } from '@aimee.shop/sdk';
+import type {
+  CheckoutCompletionResult,
+  CheckoutRefusalTotals,
+} from '@aimee.shop/sdk';
 import { CHECKOUT_REFUSAL_CODES, getCheckoutRefusal } from '@aimee.shop/sdk';
 import { config } from '@/lib/config';
 import type { CheckoutPaymentIntent } from '@/lib/checkout-payment';
@@ -10,15 +13,33 @@ export interface PrepareCheckoutPaymentInput {
   checkoutId: string;
   /** Checkout revision whose total the shopper accepted (from totals/session). */
   revision: number;
+  /**
+   * Bind the customer's Stripe customer to the intent. Needed to pay with a
+   * saved card; also vaults a newly entered card, so send it only when the
+   * shopper chose a saved card. Registered customers only.
+   */
+  savePaymentMethod?: boolean;
 }
+
+/**
+ * Why preparePayment refused:
+ * - stale: the priced total changed; `revision`/`totals` carry the new price
+ *   when the API sent it. The shopper must review it before paying.
+ * - shipping: the selected shipping rate is no longer offered; pick another.
+ * - retry: transient; the same call can succeed after `retryAfterSeconds`.
+ * - failed: anything else.
+ */
+export type PrepareRefusalReason = 'stale' | 'shipping' | 'retry' | 'failed';
 
 export type PrepareCheckoutPaymentResult =
   | { ok: true; intent: CheckoutPaymentIntent }
   | {
       ok: false;
       message: string;
-      /** The priced total changed; refetch totals before retrying. */
-      stale: boolean;
+      reason: PrepareRefusalReason;
+      revision?: number;
+      totals?: CheckoutRefusalTotals;
+      retryAfterSeconds?: number;
     };
 
 // Compensation statuses where the payment is (being) returned to the shopper.
@@ -34,6 +55,15 @@ const STALE_CODES: ReadonlySet<string> = new Set([
   CHECKOUT_REFUSAL_CODES.SHIPPING_RATE_CHANGED,
 ]);
 
+// The same prepare call can succeed shortly: an attempt being retired, a
+// concurrent revision write, preparation still running, or a shipping requote.
+const RETRY_CODES: ReadonlySet<string> = new Set([
+  CHECKOUT_REFUSAL_CODES.CHECKOUT_ATTEMPT_RETIRING,
+  CHECKOUT_REFUSAL_CODES.CHECKOUT_REVISION_CONFLICT,
+  CHECKOUT_REFUSAL_CODES.CHECKOUT_ATTEMPT_NOT_READY,
+  CHECKOUT_REFUSAL_CODES.SHIPPING_QUOTE_UNAVAILABLE,
+]);
+
 /**
  * Price the checkout server-side and freeze that total in a payment attempt
  * (checkout.preparePayment). The browser never sends an amount: the platform
@@ -46,18 +76,22 @@ export async function prepareCheckoutPayment(
   input: PrepareCheckoutPaymentInput
 ): Promise<PrepareCheckoutPaymentResult> {
   if (!config.apiKey) {
-    throw new Error(
-      'Payment is not configured (missing AIMEE_API_KEY). Contact the store administrator.'
-    );
+    return {
+      ok: false,
+      reason: 'failed',
+      message:
+        'Payment is not configured (missing AIMEE_API_KEY). Contact the store administrator.',
+    };
   }
   if (!input.checkoutId) {
-    throw new Error('No checkout session.');
+    return { ok: false, reason: 'failed', message: 'No checkout session.' };
   }
 
   try {
     const prepared = await sdk.checkout.preparePayment(input.checkoutId, {
       revision: input.revision,
       provider: 'stripe',
+      ...(input.savePaymentMethod ? { savePaymentMethod: true } : {}),
     });
     if (!prepared.publishableKey || !prepared.clientSecret) {
       throw new Error('Payment service returned an incomplete response.');
@@ -77,25 +111,33 @@ export async function prepareCheckoutPayment(
     if (refusal && STALE_CODES.has(refusal.code)) {
       return {
         ok: false,
-        stale: true,
+        reason: 'stale',
         message: 'Your order total changed. Review the updated total and try again.',
+        ...(refusal.revision !== undefined ? { revision: refusal.revision } : {}),
+        ...(refusal.totals ? { totals: refusal.totals } : {}),
       };
     }
-    if (
-      refusal?.code === CHECKOUT_REFUSAL_CODES.SHIPPING_RATE_UNAVAILABLE ||
-      refusal?.code === CHECKOUT_REFUSAL_CODES.SHIPPING_QUOTE_UNAVAILABLE
-    ) {
+    if (refusal?.code === CHECKOUT_REFUSAL_CODES.SHIPPING_RATE_UNAVAILABLE) {
       return {
         ok: false,
-        stale: false,
-        message:
-          'That shipping method is no longer available. Go back and choose another.',
+        reason: 'shipping',
+        message: 'That shipping method is no longer available. Choose another.',
+      };
+    }
+    if (refusal && RETRY_CODES.has(refusal.code)) {
+      return {
+        ok: false,
+        reason: 'retry',
+        message: 'Could not start payment. Please try again.',
+        ...(refusal.retryAfterSeconds !== undefined
+          ? { retryAfterSeconds: refusal.retryAfterSeconds }
+          : {}),
       };
     }
     if (refusal?.code === CHECKOUT_REFUSAL_CODES.CHECKOUT_PAYMENT_TAKEN) {
       return {
         ok: false,
-        stale: false,
+        reason: 'failed',
         message:
           'A payment for this checkout was already received. Check your email or contact support before paying again.',
       };
@@ -104,7 +146,7 @@ export async function prepareCheckoutPayment(
     console.error('[checkout] preparePayment failed', error);
     return {
       ok: false,
-      stale: false,
+      reason: 'failed',
       message: 'Could not start payment. Please try again.',
     };
   }
@@ -114,6 +156,13 @@ export interface CompleteCheckoutSessionInput {
   checkoutId: string;
   paymentIntentId: string;
 }
+
+// Like PrepareCheckoutPaymentResult: a thrown server action error reaches a
+// production client only as React error #441, so refusals come back as a
+// result the shopper can read.
+export type CompleteCheckoutSessionResult =
+  | { ok: true; completion: CheckoutCompletionResult }
+  | { ok: false; message: string };
 
 /**
  * Complete checkout and create the order (server-side).
@@ -126,40 +175,57 @@ export interface CompleteCheckoutSessionInput {
  */
 export async function completeCheckoutSession(
   input: CompleteCheckoutSessionInput
-): Promise<CheckoutCompletionResult> {
+): Promise<CompleteCheckoutSessionResult> {
   if (!input.checkoutId) {
-    throw new Error('No checkout session.');
+    return { ok: false, message: 'No checkout session.' };
   }
   if (!input.paymentIntentId) {
-    throw new Error('Missing payment confirmation.');
+    return { ok: false, message: 'Missing payment confirmation.' };
   }
   if (!config.apiKey) {
-    throw new Error(
-      'Checkout completion is not configured (missing AIMEE_API_KEY). Contact the store administrator.'
-    );
+    return {
+      ok: false,
+      message:
+        'Checkout completion is not configured (missing AIMEE_API_KEY). Contact the store administrator.',
+    };
   }
 
   try {
-    return await sdk.checkout.complete(input.checkoutId, {
-      paymentIntentId: input.paymentIntentId,
-      // MVP has no separate terms checkbox on the payment step.
-      termsAccepted: true,
-    });
+    const completion = await sdk.checkout.complete(
+      input.checkoutId,
+      {
+        paymentIntentId: input.paymentIntentId,
+        // MVP has no separate terms checkbox on the payment step.
+        termsAccepted: true,
+      },
+      // One key per paid attempt: a retry or double submit replays the
+      // first completion instead of completing twice.
+      {
+        idempotencyKey: `checkout-complete:${input.checkoutId}:${input.paymentIntentId}`,
+      }
+    );
+    return { ok: true, completion };
   } catch (error) {
     console.error('[checkout] complete failed', error);
     const compensation = getCheckoutRefusal(error)?.compensation;
     if (compensation && RETURNED_STATUSES.has(compensation.status)) {
-      throw new Error(
-        'We could not complete your order, and your payment is being returned. Please try again.'
-      );
+      return {
+        ok: false,
+        message:
+          'We could not complete your order, and your payment is being returned. Please try again.',
+      };
     }
     if (error instanceof Error && /expir/i.test(error.message)) {
-      throw new Error(
-        'This checkout session has expired. Return to your cart and try again.'
-      );
+      return {
+        ok: false,
+        message:
+          'This checkout session has expired. Return to your cart and try again.',
+      };
     }
-    throw new Error(
-      'Payment succeeded but order completion failed. Please contact support with your payment confirmation.'
-    );
+    return {
+      ok: false,
+      message:
+        'Payment succeeded but order completion failed. Please contact support with your payment confirmation.',
+    };
   }
 }

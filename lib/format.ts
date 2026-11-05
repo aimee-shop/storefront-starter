@@ -50,7 +50,8 @@ export function currencyDecimalPlaces(currencyCode: string): number {
   return 2;
 }
 
-function minorUnitsToMajor(cents: number, currencyCode: string): number {
+/** Minor units to a major-unit amount (1200 USD -> 12). */
+export function minorUnitsToMajor(cents: number, currencyCode: string): number {
   const decimals = currencyDecimalPlaces(currencyCode);
   const divisor = 10 ** decimals;
   return cents / divisor;

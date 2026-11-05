@@ -9,7 +9,7 @@ import { ActiveFilters } from '@/components/products/ActiveFilters';
 import { ProductPagination } from '@/components/products/ProductPagination';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
 import { Separator } from '@/components/ui/separator';
-import type { Category } from '@aimee.shop/sdk';
+import type { Category, SearchFacet } from '@aimee.shop/sdk';
 import type { StorefrontProduct } from '@/components/products/ProductCard';
 import { searchItemToProduct, toStorefrontProduct } from '@/lib/catalog-view';
 
@@ -102,7 +102,11 @@ export default async function ProductsPage({ searchParams }: ProductsPageProps) 
   }
   const facetOptions: Record<string, string[]> =
     facetsResult.status === 'fulfilled'
-      ? (facetsResult.value.facets ?? {})
+      ? Object.fromEntries(
+          Object.entries(facetsResult.value.facets ?? {}).map(
+            ([key, values]) => [key, values.map(String)]
+          )
+        )
       : {};
   if (facetsResult.status === 'rejected') {
     console.error(
@@ -118,7 +122,7 @@ export default async function ProductsPage({ searchParams }: ProductsPageProps) 
   // a blank-but-200 catalog would hide a real outage.
   let products: StorefrontProduct[] = [];
   let total = 0;
-  let searchFacets: { field: string; values: { value: string; count: number }[] }[] | undefined;
+  let searchFacets: SearchFacet[] | undefined;
 
   if (isSearchMode && query) {
     // Search mode: use sdk.search.products()

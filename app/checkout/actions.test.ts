@@ -65,7 +65,27 @@ describe('prepareCheckoutPayment', () => {
 
     const result = await prepareCheckoutPayment({ checkoutId: 'chk-1', revision: 3 });
 
-    expect(result).toMatchObject({ ok: false, stale: true });
+    expect(result).toMatchObject({ ok: false, reason: 'stale', revision: 4 });
+  });
+
+  it('sends a gone shipping rate back to shipping and retries a retiring attempt', async () => {
+    preparePayment.mockRejectedValueOnce(
+      new ConflictError('gone', { code: 'SHIPPING_RATE_UNAVAILABLE', retryable: false })
+    );
+    await expect(
+      prepareCheckoutPayment({ checkoutId: 'chk-1', revision: 3 })
+    ).resolves.toMatchObject({ ok: false, reason: 'shipping' });
+
+    preparePayment.mockRejectedValueOnce(
+      new ConflictError('retiring', {
+        code: 'CHECKOUT_ATTEMPT_RETIRING',
+        retryable: true,
+        retryAfterSeconds: 1,
+      })
+    );
+    await expect(
+      prepareCheckoutPayment({ checkoutId: 'chk-1', revision: 3 })
+    ).resolves.toMatchObject({ ok: false, reason: 'retry', retryAfterSeconds: 1 });
   });
 
   it('points to support when the payment was already taken', async () => {
@@ -75,7 +95,7 @@ describe('prepareCheckoutPayment', () => {
 
     const result = await prepareCheckoutPayment({ checkoutId: 'chk-1', revision: 3 });
 
-    expect(result).toMatchObject({ ok: false, stale: false });
+    expect(result).toMatchObject({ ok: false, reason: 'failed' });
     expect(result.ok === false && result.message).toMatch(/already received/);
   });
 });
@@ -98,7 +118,10 @@ describe('completeCheckoutSession compensation', () => {
 
     await expect(
       completeCheckoutSession({ checkoutId: 'chk-1', paymentIntentId: 'pi_1' })
-    ).rejects.toThrow(/being returned/);
+    ).resolves.toEqual({
+      ok: false,
+      message: expect.stringMatching(/being returned/),
+    });
   });
 
   it('sends the shopper to support when the refund was refused', async () => {
@@ -106,6 +129,37 @@ describe('completeCheckoutSession compensation', () => {
 
     await expect(
       completeCheckoutSession({ checkoutId: 'chk-1', paymentIntentId: 'pi_1' })
-    ).rejects.toThrow(/contact support/);
+    ).resolves.toEqual({
+      ok: false,
+      message: expect.stringMatching(/contact support/),
+    });
+  });
+});
+
+describe('completeCheckoutSession', () => {
+  beforeEach(() => {
+    complete.mockReset();
+  });
+
+  it('completes with one idempotency key per checkout and payment', async () => {
+    const completion = { status: 'success', orderId: 'ord-1' };
+    complete.mockResolvedValue(
+      completion as Awaited<ReturnType<Checkout['complete']>>
+    );
+
+    const input = { checkoutId: 'chk-1', paymentIntentId: 'pay-1' };
+    await expect(completeCheckoutSession(input)).resolves.toEqual({
+      ok: true,
+      completion,
+    });
+    await completeCheckoutSession(input);
+
+    expect(complete).toHaveBeenCalledWith(
+      'chk-1',
+      { paymentIntentId: 'pay-1', termsAccepted: true },
+      { idempotencyKey: 'checkout-complete:chk-1:pay-1' }
+    );
+    const [first, second] = complete.mock.calls;
+    expect(first?.[2]).toEqual(second?.[2]);
   });
 });

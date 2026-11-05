@@ -1,5 +1,6 @@
 import { collectBlockProductIds } from '@aimee.shop/blocks';
 import type { Block, ProductData } from '@aimee.shop/blocks';
+import { minorUnitsToMajor } from './format';
 import { sdk } from './sdk';
 
 /**
@@ -30,8 +31,10 @@ export async function fetchBlockProducts(
       id: product.id,
       name: product.name,
       slug: product.slug,
-      // Blocks format major units. getPriceRanges min/max are already major-unit strings.
-      price: product.priceRange ? Number(product.priceRange.min) : undefined,
+      // Blocks format major units; priceRange bounds are cent strings ("1200").
+      price: product.priceRange
+        ? minorUnitsToMajor(Number(product.priceRange.min), product.priceRange.currency)
+        : undefined,
       currency: product.priceRange?.currency,
       images: product.primaryImage
         ? [{ url: product.primaryImage.url, alt: product.primaryImage.altText ?? undefined }]

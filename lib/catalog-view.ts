@@ -1,7 +1,6 @@
 import type { Product, SearchResultItem } from '@aimee.shop/sdk';
 import type { StorefrontProduct } from '@/components/products/ProductCard';
 import type { VariantInventory } from '@/lib/product-availability';
-import { currencyDecimalPlaces } from '@/lib/format';
 
 export interface CatalogCategory {
   id: string;
@@ -63,17 +62,16 @@ function readBound(value: unknown): number | undefined {
 
 /**
  * Price-range bound in minor units.
- * Numbers are already minor units. Decimal strings from core-api getPriceRanges
- * are major units ("15.00") and are scaled by the currency's decimal places.
+ * core-api serializes the BigInt cents as an integer string ("1200" is $12.00);
+ * numbers are already minor units. A decimal string is not a cent value.
  */
-function readMoneyBound(value: unknown, currency: string): number | undefined {
-  if (typeof value === 'number' && Number.isFinite(value)) return value;
+function readMoneyBound(value: unknown): number | undefined {
+  if (typeof value === 'number') {
+    return Number.isInteger(value) ? value : undefined;
+  }
   if (typeof value !== 'string') return undefined;
   const trimmed = value.trim();
-  if (trimmed === '') return undefined;
-  const major = Number(trimmed);
-  if (!Number.isFinite(major)) return undefined;
-  return Math.round(major * 10 ** currencyDecimalPlaces(currency));
+  return /^-?\d+$/.test(trimmed) ? Number(trimmed) : undefined;
 }
 
 function readPrice(value: unknown): number | null | undefined {
@@ -101,11 +99,11 @@ function readImages(
 function readPriceRange(value: unknown): StorefrontProduct['priceRange'] {
   if (value === null) return null;
   if (!isRecord(value)) return undefined;
-  // The SDK requires currency; without it the bounds cannot be scaled.
+  // The SDK requires currency; without it the bounds cannot be formatted.
   const currency = readString(value.currency);
   if (!currency) return undefined;
-  const min = readMoneyBound(value.min, currency);
-  const max = readMoneyBound(value.max, currency);
+  const min = readMoneyBound(value.min);
+  const max = readMoneyBound(value.max);
   if (min === undefined || max === undefined) return undefined;
   return { min, max, currency };
 }
@@ -194,8 +192,11 @@ function productFromFields(
   };
 }
 
+/** Fields every product payload carries (detail `Product` and list items). */
+type ProductIdentity = Pick<Product, 'id' | 'slug' | 'name'>;
+
 /** Catalog card fields, including include[] values the Product type omits. */
-export function toStorefrontProduct(product: Product): StorefrontProduct {
+export function toStorefrontProduct(product: ProductIdentity): StorefrontProduct {
   const fields = fieldsOf(product);
   const currency = readString(fields.currency);
   return {
@@ -225,11 +226,11 @@ export function toProductDetail(product: Product): CatalogProductDetail {
     id: product.id,
     name: product.name,
     slug: product.slug,
-    description: product.description,
+    description: product.description ?? undefined,
     productType: product.productType,
     isAvailable: product.isAvailable,
     isInventoryTracked: product.isInventoryTracked,
-    metaDescription: product.metaDescription,
+    metaDescription: product.metaDescription ?? undefined,
     tags: product.tags,
     price: readPrice(fields.price),
     compareAtPrice: readPrice(fields.compareAtPrice),
@@ -261,5 +262,5 @@ export function searchItemToProduct(item: SearchResultItem): StorefrontProduct |
     fields.name = item.name;
     return productFromFields(fields, item.id);
   }
-  return productFromFields(item.data, item.id);
+  return productFromFields(item.data ?? item.source, item.id);
 }

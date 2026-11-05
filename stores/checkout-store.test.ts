@@ -77,9 +77,8 @@ function makeTotals(overrides: Partial<TotalsBreakdown> = {}): TotalsBreakdown {
     discountBreakdown: [],
     shippingBreakdown: [],
     calculationMetadata: {
-      calculationTimeMs: 1,
-      servicesCalled: [],
-      cacheStatus: 'miss',
+      calculatedAt: '2026-01-01T00:00:00.000Z',
+      snapshotType: 'live',
     },
     ...overrides,
   };
@@ -191,7 +190,7 @@ describe('ensurePaymentIntent', () => {
     seedPaymentReady();
     createIntentMock.mockResolvedValue({
       ok: false,
-      stale: false,
+      reason: 'failed',
       message: 'Could not start payment. Please try again.',
     });
 
@@ -209,7 +208,7 @@ describe('ensurePaymentIntent', () => {
     seedPaymentReady();
     createIntentMock.mockResolvedValue({
       ok: false,
-      stale: true,
+      reason: 'stale',
       message: 'Your order total changed. Review the updated total and try again.',
     });
     calculateTotalsMock.mockResolvedValue(makeTotals({ revision: 2, total: '2700' }));
@@ -219,6 +218,82 @@ describe('ensurePaymentIntent', () => {
     ).rejects.toThrow(/total changed/);
 
     expect(useCheckoutStore.getState().totals?.revision).toBe(2);
+  });
+});
+
+describe('preparePaymentForConfirm', () => {
+  const readyIntent = {
+    clientSecret: 'pi_1_secret',
+    paymentIntentId: 'pay-1',
+    revision: 1,
+    publishableKey: 'pk_test_1',
+    status: 'pending',
+  };
+
+  it('shows the new total and keeps the card form when the price moved', async () => {
+    seedPaymentReady();
+    useCheckoutStore.setState({ paymentIntent: readyIntent });
+    createIntentMock.mockResolvedValue({
+      ok: false,
+      reason: 'stale',
+      message: 'Your order total changed. Review the updated total and try again.',
+      revision: 2,
+      totals: {
+        subtotal: '2000',
+        discountTotal: '0',
+        taxTotal: '160',
+        shippingTotal: '900',
+        total: '3060',
+        currency: 'USD',
+      },
+    });
+
+    await expect(
+      useCheckoutStore.getState().preparePaymentForConfirm()
+    ).rejects.toThrow(/total changed/);
+
+    expect(createIntentMock).toHaveBeenCalledWith({ checkoutId: 'chk-1', revision: 1 });
+    const state = useCheckoutStore.getState();
+    expect(state.totals).toMatchObject({ revision: 2, total: '3060', shippingTotal: '900' });
+    expect(state.paymentIntent).toEqual(readyIntent);
+    expect(state.error).toMatch(/total changed/);
+    expect(calculateTotalsMock).not.toHaveBeenCalled();
+  });
+
+  it('sends the shopper back to shipping when the rate is gone', async () => {
+    seedPaymentReady();
+    useCheckoutStore.setState({ paymentIntent: readyIntent });
+    createIntentMock.mockResolvedValue({
+      ok: false,
+      reason: 'shipping',
+      message: 'That shipping method is no longer available. Choose another.',
+    });
+
+    await expect(
+      useCheckoutStore.getState().preparePaymentForConfirm()
+    ).rejects.toThrow(/no longer available/);
+
+    const state = useCheckoutStore.getState();
+    expect(state.session?.workflowState).toBe('shipping_selection');
+    expect(state.paymentIntent).toBeNull();
+  });
+
+  it('retries a retiring attempt and returns the fresh intent', async () => {
+    seedPaymentReady();
+    createIntentMock
+      .mockResolvedValueOnce({
+        ok: false,
+        reason: 'retry',
+        message: 'Could not start payment. Please try again.',
+        retryAfterSeconds: 0,
+      })
+      .mockResolvedValueOnce({ ok: true, intent: { ...readyIntent, paymentIntentId: 'pay-2' } });
+
+    const intent = await useCheckoutStore.getState().preparePaymentForConfirm();
+
+    expect(createIntentMock).toHaveBeenCalledTimes(2);
+    expect(intent.paymentIntentId).toBe('pay-2');
+    expect(useCheckoutStore.getState().paymentIntent?.paymentIntentId).toBe('pay-2');
   });
 });
 
@@ -258,7 +333,7 @@ describe('completeCheckout', () => {
         status: 'pending',
       },
     });
-    completeMock.mockResolvedValue({
+    completeMock.mockResolvedValue({ ok: true, completion: {
       status: 'success',
       orderId: 'ord-1',
       paymentConfirmation: {
@@ -277,7 +352,7 @@ describe('completeCheckout', () => {
       completionMetadata: {},
       checkoutSessionId: 'chk-1',
       completedAt: '2026-07-01T00:00:00.000Z',
-    });
+    } });
 
     const result = await useCheckoutStore
       .getState()
@@ -297,15 +372,19 @@ describe('completeCheckout', () => {
 
   it('keeps error visible when complete fails after confirm', async () => {
     seedPaymentReady();
-    completeMock.mockRejectedValue(new Error('session expired'));
+    completeMock.mockResolvedValue({
+      ok: false,
+      message:
+        'This checkout session has expired. Return to your cart and try again.',
+    });
 
     await expect(
       useCheckoutStore.getState().completeCheckout('pi_stripe_123')
-    ).rejects.toThrow(/session expired/);
+    ).rejects.toThrow(/session has expired/);
 
     const state = useCheckoutStore.getState();
     expect(state.completion).toBeNull();
-    expect(state.error).toMatch(/session expired|completion failed/i);
+    expect(state.error).toMatch(/session has expired/);
     expect(state.isLoading).toBe(false);
   });
 });

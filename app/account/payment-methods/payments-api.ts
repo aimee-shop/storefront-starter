@@ -78,6 +78,9 @@ function toSavedPaymentMethod(raw: unknown): SavedPaymentMethod | null {
   return {
     id: r.id,
     customerId: r.customerId,
+    provider: typeof r.provider === 'string' ? r.provider : '',
+    providerMethodId:
+      typeof r.providerMethodId === 'string' ? r.providerMethodId : '',
     type: typeof r.type === 'string' ? r.type : 'card',
     cardBrand: typeof r.cardBrand === 'string' ? r.cardBrand : null,
     cardLastFour: typeof r.cardLastFour === 'string' ? r.cardLastFour : null,

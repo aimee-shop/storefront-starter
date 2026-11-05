@@ -5,16 +5,24 @@
 @custom-variant dark (&:is(.dark *));
 
 /* Brand tokens -- demo defaults from the Aimee brand standard; replace with
-   your brand colors (or set them in the admin theme settings). */
+   your brand colors (or set them in the admin theme settings).
+   Tailwind: bg-primary / hover:bg-primary-hover (Blue), bg-brand-secondary
+   (Pink), bg-brand-accent (Cyan), text-brand-secondary-text,
+   text-brand-accent-text. shadcn secondary/accent stay neutral surfaces. */
 :root {
-  --color-primary: #0066F7; /* Blue: CTA fill, white text */
-  --color-secondary: #FB74C6; /* Pink: fills/badges only; label text uses #B8317A */
+  --color-primary: #0066F7; /* Blue: CTA fill, white text (4.95:1) */
+  --color-primary-hover: #0052D6; /* Blue-600; lib/theme.ts derives one for a merchant primary */
+  --color-secondary: #FB74C6; /* Pink: fills/badges only, Ink text on it */
+  --color-secondary-text: #B8317A; /* Pink text on light grounds (5.59:1 on white) */
   --color-dark: #050A1C; /* Ink: headings, dark sections */
   --color-light: #F6F8FC; /* neutral-50 */
   --color-footer: #0B1226; /* Ink 2 */
-  --color-accent: #00B2FD; /* Cyan: fills/icons only; text uses #076A99 */
+  --color-accent: #00B2FD; /* Cyan: fills/icons only, Ink text on it */
+  --color-accent-text: #076A99; /* Cyan text on light grounds (5.95:1 on white) */
 
   --font-sans: system-ui, -apple-system, sans-serif;
+  /* --font-quicksand is set by next/font in app/layout.tsx */
+  --font-heading: var(--font-quicksand, Quicksand), Poppins, system-ui, sans-serif;
 
   --background: oklch(1 0 0);
 
@@ -28,9 +36,11 @@
 
   --popover-foreground: oklch(0.145 0 0);
 
-  --primary: oklch(0.205 0 0);
+  --primary: var(--color-primary);
 
-  --primary-foreground: oklch(0.985 0 0);
+  --primary-foreground: oklch(1 0 0);
+
+  --primary-hover: var(--color-primary-hover);
 
   --secondary: oklch(0.97 0 0);
 
@@ -83,27 +93,29 @@
 
 /* @aimee.shop/blocks theme overrides */
 :root {
-  --zb-font-family: var(--font-sans);
-  --zb-heading-color: var(--color-dark);
-  --zb-cta-bg: var(--color-primary);
-  --zb-cta-color: #ffffff;
-  --zb-footer-foreground: #ffffff;
-  --zb-spacing-md: 1.5rem;
-  --zb-border-radius: 0.5rem;
+  --aimee-font-family: var(--font-sans);
+  --aimee-font-heading: var(--font-heading);
+  --aimee-heading-color: var(--color-dark);
+  --aimee-cta-bg: var(--color-primary);
+  --aimee-cta-hover-bg: var(--color-primary-hover);
+  --aimee-cta-color: #ffffff;
+  --aimee-footer-foreground: #ffffff;
+  --aimee-spacing-md: 1.5rem;
+  --aimee-border-radius: 0.5rem;
   /* Headline / subheadline gradient pair: fill stays currentColor until
      buildThemeCssOverrides emits a valid gradient + transparent fill. */
-  --zb-headline-gradient: none;
-  --zb-headline-text-fill: currentColor;
-  --zb-subheadline-gradient: none;
-  --zb-subheadline-text-fill: currentColor;
+  --aimee-headline-gradient: none;
+  --aimee-headline-text-fill: currentColor;
+  --aimee-subheadline-gradient: none;
+  --aimee-subheadline-text-fill: currentColor;
 }
 
-/* Reserved token: blocks 0.4.0 has no --zb-subheadline-gradient consumer. */
-.zb-hero__subheadline {
-  background-image: var(--zb-subheadline-gradient);
+/* Reserved token: blocks 0.4.0 has no --aimee-subheadline-gradient consumer. */
+.aimee-hero__subheadline {
+  background-image: var(--aimee-subheadline-gradient);
   -webkit-background-clip: text;
   background-clip: text;
-  -webkit-text-fill-color: var(--zb-subheadline-text-fill);
+  -webkit-text-fill-color: var(--aimee-subheadline-text-fill);
 }
 
 body {
@@ -148,6 +160,11 @@ body {
 
 @theme inline {
   --font-sans: var(--font-sans);
+  --font-heading: var(--font-heading);
+  --color-brand-secondary: var(--color-secondary);
+  --color-brand-secondary-text: var(--color-secondary-text);
+  --color-brand-accent: var(--color-accent);
+  --color-brand-accent-text: var(--color-accent-text);
   --color-sidebar-ring: var(--sidebar-ring);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
@@ -172,6 +189,7 @@ body {
   --color-secondary-foreground: var(--secondary-foreground);
   --color-secondary: var(--secondary);
   --color-primary-foreground: var(--primary-foreground);
+  --color-primary-hover: var(--primary-hover);
   --color-primary: var(--primary);
   --color-popover-foreground: var(--popover-foreground);
   --color-popover: var(--popover);
@@ -197,5 +215,8 @@ body {
   }
   html {
     @apply font-sans;
+  }
+  h1, h2, h3, h4, h5, h6 {
+    font-family: var(--font-heading);
   }
 }

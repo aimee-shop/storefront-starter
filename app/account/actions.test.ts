@@ -63,6 +63,7 @@ const reset = {
   newPassword: 'Secret1!',
 };
 const authResponse: StorefrontAuthResponse = {
+  status: 'authenticated',
   customer: {
     id: 'cust-1',
     email: 'shopper@example.com',

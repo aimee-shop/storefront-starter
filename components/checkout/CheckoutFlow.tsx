@@ -5,6 +5,7 @@ import dynamic from 'next/dynamic';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import type { StorefrontAddress } from '@aimee.shop/sdk';
+import type { SavedPaymentMethod } from '@/app/account/payment-methods/types';
 import { useCartStore } from '@/stores/cart-store';
 import { useCheckoutStore } from '@/stores/checkout-store';
 import { CheckoutSteps } from '@/components/checkout/CheckoutSteps';
@@ -39,10 +40,13 @@ const CheckoutPaymentStep = dynamic(
  */
 export function CheckoutFlow({
   savedAddresses = [],
+  savedCards = [],
   customerEmail,
 }: {
   /** Saved customer addresses (signed-in only); empty for guests. */
   savedAddresses?: StorefrontAddress[];
+  /** Saved Stripe cards (signed-in only); empty for guests. */
+  savedCards?: SavedPaymentMethod[];
   /** Signed-in customer email for address form defaults. */
   customerEmail?: string | null;
 }) {
@@ -286,7 +290,7 @@ export function CheckoutFlow({
               Enter your card details to complete your order.
             </p>
             <div className="mt-6 rounded-lg border p-4 sm:p-6">
-              <CheckoutPaymentStep />
+              <CheckoutPaymentStep savedCards={savedCards} />
             </div>
           </section>
         )}

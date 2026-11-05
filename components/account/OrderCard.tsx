@@ -1,6 +1,6 @@
 import Link from 'next/link';
-import type { Order } from '@aimee.shop/sdk';
-import { formatDate, formatPrice } from '@/lib/format';
+import type { StorefrontOrder } from '@aimee.shop/sdk';
+import { formatDate, formatMoney } from '@/lib/format';
 import { OrderStatusBadge } from './OrderStatusBadge';
 
 /**
@@ -8,7 +8,7 @@ import { OrderStatusBadge } from './OrderStatusBadge';
  * page by order number (orders without a number cannot be linked -- render
  * the row inert in that edge case).
  */
-export function OrderCard({ order }: { order: Order }) {
+export function OrderCard({ order }: { order: StorefrontOrder }) {
   const itemCount = order.orderItems.reduce((sum, item) => sum + item.quantity, 0);
   const currency = order.currency ?? 'USD';
 
@@ -26,7 +26,7 @@ export function OrderCard({ order }: { order: Order }) {
       <div className="flex items-center gap-3">
         <OrderStatusBadge status={order.status} />
         <span className="font-medium">
-          {formatPrice(order.totalAmount, currency)}
+          {formatMoney(order.totalAmount, currency)}
         </span>
       </div>
     </div>

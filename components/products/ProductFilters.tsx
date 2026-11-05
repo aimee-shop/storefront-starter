@@ -1,6 +1,7 @@
 'use client';
 
 import { useRouter, useSearchParams } from 'next/navigation';
+import type { SearchFacet } from '@aimee.shop/sdk';
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
 import { cn } from '@/lib/utils';
@@ -12,11 +13,6 @@ interface CategoryNode {
   name: string;
   slug: string;
   children?: CategoryNode[];
-}
-
-interface SearchFacet {
-  field: string;
-  values: { value: string; count: number }[];
 }
 
 interface ProductFiltersProps {
@@ -67,8 +63,8 @@ export function ProductFilters({
   if (searchFacets) {
     for (const facet of searchFacets) {
       const map = new Map<string, number>();
-      for (const v of facet.values) {
-        map.set(v.value, v.count);
+      for (const bucket of facet.buckets) {
+        map.set(String(bucket.key), bucket.count);
       }
       facetCountMaps.set(facet.field, map);
     }

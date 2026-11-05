@@ -6,7 +6,7 @@ const { get } = vi.hoisted(() => ({
   id,
   name: `Product ${id}`,
   slug: id,
-  priceRange: { min: '10', max: '10', currency: 'EUR' },
+  priceRange: { min: '1200', max: '1200', currency: 'EUR' },
   primaryImage: null,
   })),
 }));
@@ -43,5 +43,7 @@ describe('fetchBlockProducts', () => {
     const products = await fetchBlockProducts(blocks);
     expect(get).toHaveBeenCalledWith('p-nested', expect.anything());
     expect(products?.['p-nested']?.currency).toBe('EUR');
+    // Blocks format major units: 1200 minor units is 12.00.
+    expect(products?.['p-nested']?.price).toBe(12);
   });
 });

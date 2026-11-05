@@ -187,19 +187,19 @@ const COLOR_CSS_MAP: Record<keyof ThemeColors, string> = {
   headerBackground: '--color-header-bg',
 };
 
-// Reserved ThemeGradients keys only. heroBackground has no dedicated --zb-*
+// Reserved ThemeGradients keys only. heroBackground has no dedicated --aimee-*
 // gradient token in blocks 0.4.0; do not invent one.
 const GRADIENT_CSS_MAP: Record<
   'headline' | 'accent',
   { cssVar: string; fillVar: string }
 > = {
   headline: {
-    cssVar: '--zb-headline-gradient',
-    fillVar: '--zb-headline-text-fill',
+    cssVar: '--aimee-headline-gradient',
+    fillVar: '--aimee-headline-text-fill',
   },
   accent: {
-    cssVar: '--zb-subheadline-gradient',
-    fillVar: '--zb-subheadline-text-fill',
+    cssVar: '--aimee-subheadline-gradient',
+    fillVar: '--aimee-subheadline-text-fill',
   },
 };
 
@@ -208,37 +208,37 @@ const HERO_CTA_FIELDS: Array<{
   cssVar: string;
   validate: (v: unknown) => v is string;
 }> = [
-  { field: 'background', cssVar: '--zb-hero-cta-bg', validate: isValidColor },
-  { field: 'color', cssVar: '--zb-hero-cta-color', validate: isValidColor },
+  { field: 'background', cssVar: '--aimee-hero-cta-bg', validate: isValidColor },
+  { field: 'color', cssVar: '--aimee-hero-cta-color', validate: isValidColor },
   {
     field: 'hoverBackground',
-    cssVar: '--zb-hero-cta-hover-bg',
+    cssVar: '--aimee-hero-cta-hover-bg',
     validate: isValidColor,
   },
   {
     field: 'hoverColor',
-    cssVar: '--zb-hero-cta-hover-color',
+    cssVar: '--aimee-hero-cta-hover-color',
     validate: isValidColor,
   },
   {
     field: 'borderColor',
-    cssVar: '--zb-hero-cta-border-color',
+    cssVar: '--aimee-hero-cta-border-color',
     validate: isValidColor,
   },
   {
     field: 'borderRadius',
-    cssVar: '--zb-hero-cta-radius',
+    cssVar: '--aimee-hero-cta-radius',
     validate: isValidSize,
   },
-  { field: 'padding', cssVar: '--zb-hero-cta-padding', validate: isValidPadding },
+  { field: 'padding', cssVar: '--aimee-hero-cta-padding', validate: isValidPadding },
   {
     field: 'fontWeight',
-    cssVar: '--zb-hero-cta-font-weight',
+    cssVar: '--aimee-hero-cta-font-weight',
     validate: isValidFontWeight,
   },
   {
     field: 'textTransform',
-    cssVar: '--zb-hero-cta-text-transform',
+    cssVar: '--aimee-hero-cta-text-transform',
     validate: isValidTextTransform,
   },
 ];
@@ -252,6 +252,12 @@ export function buildThemeCssOverrides(settings: ThemeSettings): string {
       if (isValidColor(value)) {
         decls.push(`${cssVar}: ${value}`);
       }
+    }
+    // The #0052D6 hover default in globals.css only fits Aimee Blue.
+    if (isValidColor(settings.colors.primary)) {
+      decls.push(
+        `--color-primary-hover: color-mix(in oklab, ${settings.colors.primary}, black 15%)`,
+      );
     }
   }
 

@@ -13,16 +13,17 @@ const STATUS_LABELS: Record<OrderStatus, string> = {
   refunded: 'Refunded',
 };
 
-function statusVariant(status: OrderStatus): 'default' | 'secondary' | 'destructive' {
+function statusVariant(status: string): 'default' | 'secondary' | 'destructive' {
   if (status === 'cancelled' || status === 'refunded') return 'destructive';
   if (status === 'delivered' || status === 'completed') return 'default';
   return 'secondary';
 }
 
-export function OrderStatusBadge({ status }: { status: OrderStatus }) {
+// Storefront orders carry status as a plain string; unknown values render as-is.
+export function OrderStatusBadge({ status }: { status: OrderStatus | string }) {
   return (
     <Badge variant={statusVariant(status)}>
-      {STATUS_LABELS[status] ?? status}
+      {STATUS_LABELS[status as OrderStatus] ?? status}
     </Badge>
   );
 }

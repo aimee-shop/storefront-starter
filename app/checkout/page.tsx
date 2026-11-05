@@ -5,6 +5,9 @@ import {
   getCustomerSessionWithToken,
 } from '@/lib/customer-session';
 import { sdk } from '@/lib/sdk';
+import { checkoutSavedCards } from '@/lib/checkout-saved-cards';
+import { listPaymentMethods } from '@/app/account/payment-methods/payments-api';
+import type { SavedPaymentMethod } from '@/app/account/payment-methods/types';
 import { CheckoutFlow } from '@/components/checkout/CheckoutFlow';
 import { GuestCheckoutSignIn } from '@/components/checkout/GuestCheckoutSignIn';
 
@@ -24,6 +27,7 @@ export default async function CheckoutPage() {
   }
 
   let savedAddresses: StorefrontAddress[] = [];
+  let savedCards: SavedPaymentMethod[] = [];
   let customerEmail: string | null = customer?.email ?? null;
 
   if (customer) {
@@ -41,12 +45,22 @@ export default async function CheckoutPage() {
         // Address book is optional at checkout; form still works inline.
         savedAddresses = [];
       }
+      try {
+        savedCards = checkoutSavedCards(
+          await listPaymentMethods(session.accessToken),
+          session.customer.id
+        );
+      } catch {
+        // Saved cards are optional at checkout; the card form still works.
+        savedCards = [];
+      }
     }
   }
 
   return (
     <CheckoutFlow
       savedAddresses={savedAddresses}
+      savedCards={savedCards}
       customerEmail={customerEmail}
     />
   );

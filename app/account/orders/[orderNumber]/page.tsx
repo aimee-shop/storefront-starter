@@ -8,7 +8,7 @@ import { sdk } from '@/lib/sdk';
 import { OrderStatusBadge } from '@/components/account/OrderStatusBadge';
 import { OrderTimeline } from '@/components/account/OrderTimeline';
 import { Separator } from '@/components/ui/separator';
-import { formatDate, formatPrice } from '@/lib/format';
+import { formatDate, formatMoney } from '@/lib/format';
 
 export const metadata: Metadata = {
   title: 'Order Details',
@@ -105,11 +105,11 @@ export default async function OrderDetailPage({
                   <p className="font-medium">{item.productName}</p>
                   <p className="mt-0.5 text-sm text-muted-foreground">
                     {item.productSku ? `${item.productSku} · ` : ''}
-                    Qty {item.quantity} × {formatPrice(item.unitPrice, currency)}
+                    Qty {item.quantity} × {formatMoney(item.unitPrice, currency)}
                   </p>
                 </div>
                 <span className="shrink-0 font-medium">
-                  {formatPrice(item.totalPrice, currency)}
+                  {formatMoney(item.totalPrice, currency)}
                 </span>
               </li>
             ))}
@@ -123,26 +123,26 @@ export default async function OrderDetailPage({
           <dl className="mt-4 space-y-2 rounded-lg border p-4 text-sm">
             <div className="flex justify-between">
               <dt className="text-muted-foreground">Subtotal</dt>
-              <dd>{formatPrice(order.subtotalAmount, currency)}</dd>
+              <dd>{formatMoney(order.subtotalAmount, currency)}</dd>
             </div>
             <div className="flex justify-between">
               <dt className="text-muted-foreground">Shipping</dt>
-              <dd>{formatPrice(order.shippingAmount, currency)}</dd>
+              <dd>{formatMoney(order.shippingAmount, currency)}</dd>
             </div>
             <div className="flex justify-between">
               <dt className="text-muted-foreground">Tax</dt>
-              <dd>{formatPrice(order.taxAmount, currency)}</dd>
+              <dd>{formatMoney(order.taxAmount, currency)}</dd>
             </div>
-            {order.discountAmount > 0 && (
+            {Number(order.discountAmount) > 0 && (
               <div className="flex justify-between">
                 <dt className="text-muted-foreground">Discount</dt>
-                <dd>-{formatPrice(order.discountAmount, currency)}</dd>
+                <dd>-{formatMoney(order.discountAmount, currency)}</dd>
               </div>
             )}
             <Separator className="my-2" />
             <div className="flex justify-between font-semibold">
               <dt>Total</dt>
-              <dd>{formatPrice(order.totalAmount, currency)}</dd>
+              <dd>{formatMoney(order.totalAmount, currency)}</dd>
             </div>
           </dl>
         </section>

@@ -3,22 +3,13 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { NotFoundError } from '@aimee.shop/sdk';
+import type { PublicContentEntry } from '@aimee.shop/sdk';
 import { getCachedPublicContent } from '@/lib/cms-content';
 import { fetchBlockProducts } from '@/lib/block-products';
 import { StorefrontBlockRenderer } from '@/components/blocks/BlockPage';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
-import type { Block } from '@aimee.shop/blocks';
-
-interface BlogPostEntry {
-  title: string;
-  excerpt?: string;
-  featuredImageUrl?: string;
-  publishedAt?: string;
-  author?: string;
-  tags: string[];
-  blocks?: Block[];
-}
+import { toBlocks } from '@/lib/product-modules';
 
 interface BlogPostPageProps {
   params: Promise<{ slug: string }>;
@@ -53,10 +44,9 @@ export async function generateMetadata({ params }: BlogPostPageProps): Promise<M
 export default async function BlogPostPage({ params }: BlogPostPageProps) {
   const { slug } = await params;
 
-  let entry: BlogPostEntry;
+  let entry: PublicContentEntry;
   try {
-    const response = await getCachedPublicContent('blog', slug);
-    entry = response as BlogPostEntry;
+    entry = await getCachedPublicContent('blog', slug);
   } catch (error) {
     // Only a genuine 404 becomes the not-found page; outages and other
     // failures propagate to the root error boundary.
@@ -64,7 +54,7 @@ export default async function BlogPostPage({ params }: BlogPostPageProps) {
     throw error;
   }
 
-  const blocks = entry.blocks ?? [];
+  const blocks = toBlocks(entry.blocks);
   const products = blocks.length ? await fetchBlockProducts(blocks) : undefined;
 
   return (

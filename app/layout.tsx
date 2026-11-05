@@ -10,10 +10,16 @@ import { getAiDiscoveryJsonLd } from '@/lib/ai-discovery';
 import { isSandboxNoindex } from '@/lib/robots-policy';
 import './globals.css';
 import '@aimee.shop/blocks/styles.css';
-import { Geist } from 'next/font/google';
+import { Geist, Quicksand } from 'next/font/google';
 import { cn } from '@/lib/utils';
 
 const geist = Geist({ subsets: ['latin'], variable: '--font-sans' });
+// Heading face from the brand standard; globals.css builds --font-heading on it.
+const quicksand = Quicksand({
+  subsets: ['latin'],
+  weight: ['500', '600'],
+  variable: '--font-quicksand',
+});
 
 export async function generateMetadata(): Promise<Metadata> {
   const theme = await getStorefrontTheme();
@@ -61,7 +67,11 @@ export default async function RootLayout({
   return (
     <html
       lang="en"
-      className={cn('font-sans', useDefaultFont && geist.variable)}
+      className={cn(
+        'font-sans',
+        quicksand.variable,
+        useDefaultFont && geist.variable,
+      )}
     >
       <head>
         {theme.cssOverrides && <style>{theme.cssOverrides}</style>}

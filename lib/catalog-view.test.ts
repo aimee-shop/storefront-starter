@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { Product, SearchResultItem } from '@aimee.shop/sdk';
+import { formatListedPrice, formatMoney } from './format';
 import {
   searchItemToProduct,
   toProductDetail,
@@ -21,6 +22,11 @@ function baseProduct(): Product {
     isGoogleCheckoutEligible: false,
     isNofollow: false,
     isNoindex: false,
+    isReviewsEnabled: true,
+    isVariantRequired: false,
+    version: 1,
+    openaiEnableSearch: false,
+    openaiEnableCheckout: false,
     tags: ['summer'],
     createdAt: '2026-01-01T00:00:00.000Z',
     updatedAt: '2026-01-02T00:00:00.000Z',
@@ -28,13 +34,13 @@ function baseProduct(): Product {
 }
 
 describe('toStorefrontProduct', () => {
-  it('scales major-unit price range strings into minor units', () => {
+  it('reads cent-string price range bounds as minor units', () => {
     const product = baseProduct();
     Object.assign(product, {
       price: 2000,
       compareAtPrice: null,
       images: [{ url: 'https://cdn.example/a.jpg', alt: null }],
-      priceRange: { min: '15.00', max: '25.00', currency: 'USD' },
+      priceRange: { min: '1500', max: '2500', currency: 'USD' },
     });
 
     expect(toStorefrontProduct(product)).toEqual({
@@ -48,7 +54,7 @@ describe('toStorefrontProduct', () => {
     });
   });
 
-  it('scales string bounds by the currency decimal places', () => {
+  it('does not rescale string bounds by the currency decimal places', () => {
     const yen = baseProduct();
     Object.assign(yen, {
       priceRange: { min: '500', max: '500', currency: 'JPY' },
@@ -61,7 +67,7 @@ describe('toStorefrontProduct', () => {
 
     const dinar = baseProduct();
     Object.assign(dinar, {
-      priceRange: { min: '1.500', max: '2.000', currency: 'KWD' },
+      priceRange: { min: '1500', max: '2000', currency: 'KWD' },
     });
     expect(toStorefrontProduct(dinar).priceRange).toEqual({
       min: 1500,
@@ -89,29 +95,35 @@ describe('toStorefrontProduct', () => {
     expect(toStorefrontProduct(product).priceRange).toBeNull();
   });
 
-  it('drops a price range whose bounds are empty or not numeric', () => {
+  it('drops a price range whose bounds are empty, decimal, or not numeric', () => {
     const empty = baseProduct();
     Object.assign(empty, {
-      priceRange: { min: '', max: '15.00', currency: 'USD' },
+      priceRange: { min: '', max: '1500', currency: 'USD' },
     });
     expect(toStorefrontProduct(empty).priceRange).toBeUndefined();
 
     const junk = baseProduct();
     Object.assign(junk, {
-      priceRange: { min: '   ', max: '15.00', currency: 'USD' },
+      priceRange: { min: '   ', max: '1500', currency: 'USD' },
     });
     expect(toStorefrontProduct(junk).priceRange).toBeUndefined();
 
     const text = baseProduct();
     Object.assign(text, {
-      priceRange: { min: 'nope', max: '15.00', currency: 'USD' },
+      priceRange: { min: 'nope', max: '1500', currency: 'USD' },
     });
     expect(toStorefrontProduct(text).priceRange).toBeUndefined();
+
+    const decimal = baseProduct();
+    Object.assign(decimal, {
+      priceRange: { min: '15.00', max: '15.00', currency: 'USD' },
+    });
+    expect(toStorefrontProduct(decimal).priceRange).toBeUndefined();
   });
 
   it('drops a price range without a currency', () => {
     const product = baseProduct();
-    Object.assign(product, { priceRange: { min: '15.00', max: '25.00' } });
+    Object.assign(product, { priceRange: { min: '1500', max: '2500' } });
     expect(toStorefrontProduct(product).priceRange).toBeUndefined();
   });
 
@@ -140,12 +152,13 @@ describe('searchItemToProduct', () => {
       id: 'hit-1',
       type: 'product',
       score: 1,
+      source: {},
       data: {},
     };
     Object.assign(hit, {
       slug: 'hat',
       name: 'Hat',
-      priceRange: { min: '15.00', max: '15.00', currency: 'USD' },
+      priceRange: { min: '1500', max: '1500', currency: 'USD' },
     });
 
     expect(searchItemToProduct(hit)).toEqual({
@@ -164,11 +177,12 @@ describe('searchItemToProduct', () => {
       id: 'hit-2',
       type: 'product',
       score: 1,
+      source: {},
       data: {
         slug: 'cap',
         name: 'Cap',
         price: null,
-        priceRange: { min: '10.00', max: '12.50', currency: 'EUR' },
+        priceRange: { min: '1000', max: '1250', currency: 'EUR' },
       },
     };
 
@@ -188,6 +202,7 @@ describe('searchItemToProduct', () => {
       id: 'hit-3',
       type: 'product',
       score: 1,
+      source: {},
       data: {},
     };
     Object.assign(onHit, { slug: 'hat', name: 'Hat', price: 1800, currency: 'GBP' });
@@ -201,6 +216,7 @@ describe('searchItemToProduct', () => {
       id: 'hit-4',
       type: 'product',
       score: 1,
+      source: {},
       data: { slug: 'cap', name: 'Cap', price: 900, currency: 'EUR' },
     };
     expect(searchItemToProduct(inData)).toMatchObject({
@@ -212,6 +228,20 @@ describe('searchItemToProduct', () => {
 });
 
 describe('toProductDetail', () => {
+  it('labels the PDP price the same as the cart line for that variant', () => {
+    // core-api sends the range as cent strings and cart money as cent strings.
+    const mug = baseProduct();
+    Object.assign(mug, {
+      priceRange: { min: '1200', max: '1200', currency: 'USD' },
+    });
+    const cartUnitPrice = '1200';
+
+    expect(formatListedPrice(toProductDetail(mug))).toBe('$12.00');
+    expect(formatListedPrice(toProductDetail(mug))).toBe(
+      formatMoney(cartUnitPrice, 'USD')
+    );
+  });
+
   it('maps categories and a complete inventory summary', () => {
     const product = baseProduct();
     Object.assign(product, {
@@ -312,6 +342,7 @@ describe('searchItemToProduct misses', () => {
         id: 'hit-3',
         type: 'product',
         score: 0,
+        source: {},
         data: { name: 'Hat' },
       }),
     ).toBeNull();

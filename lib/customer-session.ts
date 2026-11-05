@@ -46,7 +46,7 @@ export async function getCustomerSessionWithToken(): Promise<CustomerSession | n
   if (!refreshToken) return null;
 
   try {
-    const refreshed = await sdk.storefront.auth.refresh(refreshToken);
+    const refreshed = await sdk.storefront.auth.refresh({ refreshToken });
     const customer = await sdk.storefront
       .withCustomer(refreshed.accessToken)
       .auth.me();

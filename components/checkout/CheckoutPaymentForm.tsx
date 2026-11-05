@@ -46,9 +46,11 @@ export type ConfirmPaymentFn = (
 function StripeCardInput({
   onReady,
   disabled,
+  savedMethodId,
 }: {
   onReady?: (confirmPayment: ConfirmPaymentFn) => void;
   disabled?: boolean;
+  savedMethodId?: string | null;
 }) {
   const stripe = useStripe();
   const elements = useElements();
@@ -60,16 +62,36 @@ function StripeCardInput({
         return { success: false, error: 'Stripe is still loading' };
       }
 
-      const cardElement = elements.getElement(CardElement);
-      if (!cardElement) {
+      // A saved card is confirmed by its Stripe method id; no card field.
+      const cardElement = savedMethodId
+        ? null
+        : elements.getElement(CardElement);
+      const paymentMethod = savedMethodId
+        ? savedMethodId
+        : cardElement
+          ? { card: cardElement }
+          : null;
+      if (!paymentMethod) {
         return { success: false, error: 'Card field not found' };
       }
 
-      const { error: stripeError, paymentIntent } =
-        await stripe.confirmCardPayment(clientSecret, {
-          payment_method: { card: cardElement },
+      let confirmResult: Awaited<ReturnType<typeof stripe.confirmCardPayment>>;
+      try {
+        confirmResult = await stripe.confirmCardPayment(clientSecret, {
+          payment_method: paymentMethod,
         });
+      } catch (thrown) {
+        // Stripe.js throws IntegrationErrors (e.g. the Element was unmounted)
+        // instead of resolving with { error }; report them like a decline.
+        const message =
+          thrown instanceof Error && thrown.message
+            ? thrown.message
+            : 'Payment failed. Please try again.';
+        setError(message);
+        return { success: false, error: message };
+      }
 
+      const { error: stripeError, paymentIntent } = confirmResult;
       if (stripeError) {
         const message = stripeError.message ?? 'Payment failed';
         setError(message);
@@ -95,7 +117,7 @@ function StripeCardInput({
         paymentIntentStatus: status,
       };
     },
-    [stripe, elements]
+    [stripe, elements, savedMethodId]
   );
 
   useEffect(() => {
@@ -106,16 +128,18 @@ function StripeCardInput({
 
   return (
     <div>
-      <div
-        className={cn(
-          'rounded-md border bg-background px-3 py-3',
-          error
-            ? 'border-destructive focus-within:border-destructive'
-            : 'border-input focus-within:border-ring'
-        )}
-      >
-        <CardElement options={{ ...CARD_ELEMENT_OPTIONS, disabled }} />
-      </div>
+      {!savedMethodId && (
+        <div
+          className={cn(
+            'rounded-md border bg-background px-3 py-3',
+            error
+              ? 'border-destructive focus-within:border-destructive'
+              : 'border-input focus-within:border-ring'
+          )}
+        >
+          <CardElement options={{ ...CARD_ELEMENT_OPTIONS, disabled }} />
+        </div>
+      )}
       {error && (
         <p className="mt-1.5 text-xs text-destructive" role="alert">
           {error}
@@ -133,10 +157,13 @@ export function CheckoutPaymentForm({
   publishableKey,
   onReady,
   disabled,
+  savedMethodId,
 }: {
   publishableKey: string;
   onReady?: (confirmPayment: ConfirmPaymentFn) => void;
   disabled?: boolean;
+  /** Stripe payment method id of the saved card to pay with; omit for a new card. */
+  savedMethodId?: string | null;
 }) {
   const stripePromise = useMemo(
     () => (publishableKey ? loadStripe(publishableKey) : null),
@@ -153,7 +180,11 @@ export function CheckoutPaymentForm({
 
   return (
     <Elements key={publishableKey} stripe={stripePromise}>
-      <StripeCardInput onReady={onReady} disabled={disabled} />
+      <StripeCardInput
+        onReady={onReady}
+        disabled={disabled}
+        savedMethodId={savedMethodId}
+      />
     </Elements>
   );
 }

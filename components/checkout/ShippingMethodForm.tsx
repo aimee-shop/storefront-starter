@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import type { CheckoutShippingRate, EstimatedDelivery } from '@aimee.shop/sdk';
+import type { CheckoutShippingRate, CheckoutShippingRateDelivery } from '@aimee.shop/sdk';
 import { useCheckoutStore } from '@/stores/checkout-store';
 import { formatMoney } from '@/lib/format';
 import { FormAlert } from '@/components/account/FormAlert';
@@ -12,12 +12,11 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Skeleton } from '@/components/ui/skeleton';
 import { cn } from '@/lib/utils';
 
-/** API may return `description` in addition to the typed EstimatedDelivery fields. */
+/** Rate delivery window label: the API description, else the day range. */
 function formatEstimatedDelivery(
-  estimated: EstimatedDelivery & { description?: string }
+  estimated: CheckoutShippingRateDelivery
 ): string {
   if (estimated.description) return estimated.description;
-  if (estimated.dateRange) return estimated.dateRange;
   const min = estimated.minDays;
   const max = estimated.maxDays;
   if (min != null && max != null) {

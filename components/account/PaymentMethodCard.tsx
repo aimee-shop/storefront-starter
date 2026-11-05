@@ -6,23 +6,12 @@ import {
   setDefaultPaymentMethodAction,
 } from '@/app/account/payment-methods/actions';
 import type { SavedPaymentMethod } from '@/app/account/payment-methods/types';
+import {
+  paymentMethodExpiryLabel,
+  paymentMethodLabel,
+} from '@/lib/payment-method-label';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-
-/** "visa" -> "Visa"; non-card types fall back to a capitalized type label. */
-export function paymentMethodLabel(pm: SavedPaymentMethod): string {
-  const brand = pm.cardBrand ?? pm.type;
-  const name =
-    brand.charAt(0).toUpperCase() + brand.slice(1).replace(/_/g, ' ');
-  return pm.cardLastFour ? `${name} **** ${pm.cardLastFour}` : name;
-}
-
-export function paymentMethodExpiryLabel(
-  pm: SavedPaymentMethod
-): string | null {
-  if (pm.cardExpMonth == null || pm.cardExpYear == null) return null;
-  return `Expires ${String(pm.cardExpMonth).padStart(2, '0')}/${pm.cardExpYear}`;
-}
 
 export function PaymentMethodCard({
   paymentMethod,

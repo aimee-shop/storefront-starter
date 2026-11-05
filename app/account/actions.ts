@@ -7,6 +7,7 @@ import { AimeeError, AuthenticationError, ValidationError } from '@aimee.shop/sd
 import type { ZodError } from 'zod';
 import { sdk } from '@/lib/sdk';
 import {
+  CUSTOMER_REFRESH_COOKIE,
   CUSTOMER_TOKEN_COOKIE,
   clearSessionCookies,
   setSessionCookies,
@@ -83,13 +84,25 @@ export async function registerAction(
 
   const { email, password, firstName, lastName } = parsed.data;
   try {
-    const { accessToken, refreshToken } = await sdk.storefront.auth.register({
+    const registered = await sdk.storefront.auth.register({
       email,
       password,
       firstName: firstName || undefined,
       lastName: lastName || undefined,
     });
-    setSessionCookies(await cookies(), accessToken, refreshToken);
+    // The store requires email verification: no tokens until it is confirmed.
+    if (registered.status === 'pending_verification') {
+      return {
+        ok: false,
+        formError:
+          'Check your email to verify your account, then sign in.',
+      };
+    }
+    setSessionCookies(
+      await cookies(),
+      registered.accessToken,
+      registered.refreshToken
+    );
   } catch (error) {
     if (error instanceof ValidationError) {
       return {
@@ -118,10 +131,14 @@ function finishAuth(nextPath?: string | null): AuthResult {
 export async function logoutAction(): Promise<void> {
   const store = await cookies();
   const accessToken = store.get(CUSTOMER_TOKEN_COOKIE)?.value;
+  const refreshToken = store.get(CUSTOMER_REFRESH_COOKIE)?.value;
 
   if (accessToken) {
     try {
-      await sdk.storefront.withCustomer(accessToken).auth.logout();
+      // With the refresh token only this session is revoked, not every device.
+      await sdk.storefront
+        .withCustomer(accessToken)
+        .auth.logout(refreshToken ? { refreshToken } : {});
     } catch (error) {
       // Best-effort server-side revocation; local sign-out proceeds regardless.
       // An already-invalid session is expected; anything else is worth a log line.
